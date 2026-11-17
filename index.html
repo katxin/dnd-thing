@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Sealed Letter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=IM+Fell+English:ital@0;1&family=Pinyon+Script&display=swap" rel="stylesheet">
+<style>
+  :root { --gold:#d9b46a; --ink:#2e1c0c; }
+  * { box-sizing:border-box; }
+  html, body { margin:0; height:100%; overflow:hidden; background:#070504; color:#eadcc0; font-family:'IM Fell English', Georgia, serif; }
+  #scene { position:fixed; inset:0; touch-action:none; }
+  canvas { display:block; }
+
+  .title { position:fixed; top:16px; left:20px; pointer-events:none; z-index:5; }
+  .title h1 { margin:0; font-family:'Cinzel',serif; font-size:clamp(20px,3vw,30px); letter-spacing:.08em; color:var(--gold);
+    text-shadow:0 0 18px rgba(217,180,106,.35); }
+  .title p { margin:4px 0 0; font-style:italic; opacity:.65; font-size:15px; }
+
+  #panel { position:fixed; top:16px; right:16px; width:min(340px, calc(100vw - 32px)); z-index:5;
+    max-height:calc(100vh - 32px); overflow:auto;
+    background:linear-gradient(180deg, rgba(28,20,13,.9), rgba(16,11,8,.9));
+    border:1px solid rgba(217,180,106,.35); border-radius:10px; padding:14px 16px;
+    box-shadow:0 10px 40px rgba(0,0,0,.6); backdrop-filter:blur(4px); }
+  #panel h2 { margin:0 0 4px; font-family:'Cinzel',serif; font-size:13px; letter-spacing:.2em; color:var(--gold); text-transform:uppercase;
+    display:flex; justify-content:space-between; align-items:center; }
+  #panel.collapsed .body { display:none; }
+  .count { font-style:italic; opacity:.7; margin-bottom:8px; }
+  #notes { list-style:none; margin:0; padding:0; }
+  #notes li { padding:7px 0; border-top:1px dashed rgba(217,180,106,.25); line-height:1.35; font-size:15.5px; animation:pop .7s ease; }
+  #notes li.empty { opacity:.55; font-style:italic; border-top:none; }
+  @keyframes pop { from { opacity:0; background:rgba(217,180,106,.25);} to { opacity:1; background:transparent; } }
+  .tools { display:flex; gap:7px; flex-wrap:wrap; margin:10px 0 4px; }
+  button { font-family:'Cinzel',serif; letter-spacing:.06em; font-size:12px; color:#f3e6c8;
+    background:rgba(217,180,106,.12); border:1px solid rgba(217,180,106,.45); border-radius:6px; padding:7px 11px; cursor:pointer; }
+  button:hover { background:rgba(217,180,106,.25); border-color:var(--gold); }
+  button.on { background:rgba(217,180,106,.35); border-color:var(--gold); }
+  .door { margin-top:12px; padding-top:12px; border-top:1px solid rgba(217,180,106,.3); }
+  .door label { display:block; font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.12em; color:var(--gold); margin-bottom:7px; }
+  .door form { display:flex; gap:8px; }
+  .door input { flex:1; min-width:0; font:inherit; font-size:17px; color:#f3e6c8; background:rgba(0,0,0,.35);
+    border:1px solid rgba(217,180,106,.4); border-radius:6px; padding:6px 10px; text-transform:uppercase; letter-spacing:.12em; }
+  .door input:focus { outline:none; border-color:var(--gold); }
+  #msg { min-height:20px; margin-top:7px; font-style:italic; color:#cdb98e; font-size:15px; }
+  .shake { animation:shake .4s; }
+  @keyframes shake { 20%,60% { transform:translateX(-6px);} 40%,80% { transform:translateX(6px);} }
+  .tip { margin-top:10px; font-size:13.5px; opacity:.6; font-style:italic; line-height:1.35; }
+
+  #side { position:fixed; left:16px; top:50%; transform:translateY(-50%); z-index:6; display:flex; flex-direction:column; gap:16px; }
+  .sbtn { width:74px; padding:10px 0 8px; display:flex; flex-direction:column; align-items:center; gap:5px;
+    border-radius:14px; background:linear-gradient(180deg, rgba(34,24,15,.92), rgba(18,12,8,.92));
+    border:1px solid rgba(217,180,106,.4); color:#e9d9b4; font-family:'Cinzel',serif; font-size:10.5px; letter-spacing:.08em;
+    box-shadow:0 8px 24px rgba(0,0,0,.55); transition:box-shadow .3s, border-color .3s, background .3s; }
+  .sbtn svg { width:38px; height:38px; }
+  .sbtn:hover { border-color:var(--gold); }
+  .sbtn.on { border-color:var(--gold); background:linear-gradient(180deg, rgba(70,50,22,.95), rgba(36,25,12,.95));
+    box-shadow:0 0 0 1px rgba(217,180,106,.4), 0 0 22px rgba(217,180,106,.35), 0 8px 24px rgba(0,0,0,.55); }
+  #candleBtn .flame { transition:opacity .3s; }
+  #candleBtn.out .flame { opacity:0; }
+  #candleBtn .smoke { opacity:0; transition:opacity .3s; }
+  #candleBtn.out .smoke { opacity:.7; }
+  #candleBtn.out { border-color:#5ff0c4; box-shadow:0 0 0 1px rgba(95,240,196,.35), 0 0 22px rgba(95,240,196,.3), 0 8px 24px rgba(0,0,0,.55); }
+  #timer { font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.1em; color:#cdb98e; margin:2px 0 6px; transition:color .5s; }
+  #timer.hot { color:#ff8a4a; text-shadow:0 0 10px rgba(255,120,40,.6); animation:throb 1s infinite; }
+  @keyframes throb { 50% { opacity:.55; } }
+  #ashCard { position:fixed; inset:0; z-index:9; display:flex; align-items:center; justify-content:center; padding:20px;
+    pointer-events:none; opacity:0; transition:opacity 2s; }
+  #ashCard.show { opacity:1; pointer-events:auto; }
+  #ashCard .inner { max-width:440px; text-align:center; padding:26px 30px; border-radius:10px;
+    background:rgba(12,9,7,.82); border:1px solid rgba(160,150,140,.35); box-shadow:0 20px 60px rgba(0,0,0,.7); }
+  #ashCard h3 { margin:0 0 10px; font-family:'Cinzel',serif; color:#c9c0b4; letter-spacing:.1em; font-size:22px; }
+  #ashCard p { margin:0 0 14px; font-size:17px; line-height:1.45; color:#bdb3a6; }
+  #ashCard button { font-size:11px; opacity:.7; }
+  #ring { position:fixed; left:0; top:0; width:0; height:0; pointer-events:none; z-index:4; display:none; }
+  #ring.on { display:block; }
+  #ring .rim { position:absolute; border-radius:50%; border:10px solid #a07c3c;
+    box-shadow:0 0 0 2px #4a3416, 0 0 0 4px #d9b46a, 0 14px 34px rgba(0,0,0,.6), inset 0 0 0 2px #4a3416, inset 0 0 30px rgba(0,0,0,.35); }
+  #ring .rim::after { content:''; position:absolute; inset:0; border-radius:50%;
+    background:radial-gradient(circle at 32% 28%, rgba(255,255,255,.28), rgba(255,255,255,0) 32%); }
+  #ring .handle { position:absolute; width:26px; height:118px; transform-origin:13px 0; transform:rotate(-45deg); border-radius:7px 7px 13px 13px;
+    background:linear-gradient(90deg, #3a2210, #6b4220 40%, #4a2c14); box-shadow:0 10px 20px rgba(0,0,0,.5); }
+  #ring .handle::before { content:''; position:absolute; left:-3px; top:-6px; width:32px; height:22px; border-radius:4px;
+    background:linear-gradient(90deg, #6e5126, #d9b46a 45%, #8a6a32); }
+
+  #reveal { position:fixed; inset:0; z-index:10; display:flex; align-items:center; justify-content:center; padding:20px;
+    background:rgba(5,3,2,.7); opacity:0; pointer-events:none; transition:opacity 1.2s; }
+  #reveal.show { opacity:1; pointer-events:auto; }
+  .card { max-width:500px; color:var(--ink); padding:32px 36px 24px; border-radius:4px;
+    background:linear-gradient(135deg, #efe0b8, #d9bf85 60%, #c9a965); box-shadow:0 20px 60px rgba(0,0,0,.7), inset 0 0 60px rgba(110,70,20,.45); }
+  .card h3 { font-family:'Cinzel',serif; text-align:center; margin:0 0 14px; font-size:23px; }
+  .card p { font-size:18px; line-height:1.5; margin:0 0 12px; }
+  .card .row { display:flex; gap:8px; justify-content:center; margin-top:16px; flex-wrap:wrap; }
+  .card button, .card a.btn { color:var(--ink); background:rgba(80,50,15,.12); border:1px solid rgba(80,50,15,.5);
+    border-radius:6px; padding:7px 12px; font-family:'Cinzel',serif; font-size:12.5px; letter-spacing:.08em; text-decoration:none; }
+
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:20;
+    font-family:'Cinzel',serif; letter-spacing:.2em; color:#8c7442; background:#070504; transition:opacity .8s; }
+
+  @media (max-width: 760px) {
+    #panel { top:auto; bottom:12px; right:50%; transform:translateX(50%); max-height:46vh; }
+    .title { top:10px; left:12px; }
+    .title p { display:none; }
+    #side { top:30%; left:10px; }
+    .sbtn { width:64px; }
+  }
+</style>
+</head>
+<body>
+<div id="loading">Unfolding the letter…</div>
+<div id="scene"></div>
+<div id="side">
+  <button class="sbtn" id="candleBtn" aria-pressed="false" title="Snuff or light the candle">
+    <svg viewBox="0 0 40 40"><path class="flame" d="M20 4c3 4 4.5 6.5 4.5 9a4.5 4.5 0 0 1-9 0c0-2.5 1.5-5 4.5-9z" fill="#ffb347"/>
+      <path class="flame" d="M20 9c1.4 2 2 3.2 2 4.3a2 2 0 0 1-4 0c0-1.1.6-2.3 2-4.3z" fill="#fff3c4"/>
+      <path class="smoke" d="M20 15c-2-2 2-4 0-6s2-4 0-6" stroke="#bfb6a8" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+      <line x1="20" y1="16" x2="20" y2="19" stroke="#2a1a0c" stroke-width="1.5"/>
+      <rect x="14" y="19" width="12" height="15" rx="1.5" fill="#efe3c6"/>
+      <ellipse cx="20" cy="35" rx="11" ry="2.6" fill="#b48a46"/></svg>
+    <span id="candleLabel">Candle</span>
+  </button>
+  <button class="sbtn" id="glassBtn" aria-pressed="false" title="Use the magnifying glass">
+    <svg viewBox="0 0 40 40"><circle cx="16" cy="16" r="10" fill="rgba(200,230,255,.18)" stroke="#d9b46a" stroke-width="3"/>
+      <path d="M11 12a6 6 0 0 1 6-4" stroke="rgba(255,255,255,.6)" stroke-width="1.6" fill="none" stroke-linecap="round"/>
+      <line x1="24" y1="24" x2="34" y2="34" stroke="#6b4220" stroke-width="5" stroke-linecap="round"/></svg>
+    <span id="glassLabel">Glass</span>
+  </button>
+</div>
+<div id="ring"><div class="handle"></div><div class="rim"></div></div>
+
+<div class="title"><h1 id="title"></h1><p id="subtitle"></p></div>
+
+<div id="panel">
+  <h2><span>Your Notes</span><button id="toggle">Hide</button></h2>
+  <div class="body">
+    <div id="timer"></div>
+    <div class="count" id="count"></div>
+    <ul id="notes"><li class="empty">Nothing yet. Look closer…</li></ul>
+    <div class="tools">
+      <button id="flipBtn">Flip it over</button>
+      <button id="resetBtn">Reset view</button>
+    </div>
+    <div class="door">
+      <label for="pw" id="doorLabel"></label>
+      <form id="pwForm" autocomplete="off">
+        <input id="pw" placeholder="…" spellcheck="false">
+        <button type="submit">Speak</button>
+      </form>
+      <div id="msg"></div>
+    </div>
+    <div class="tip" id="tip">Drag to turn the letter around. Scroll to move closer. Use the buttons on the left to snuff the candle or pick up the magnifying glass.</div>
+  </div>
+</div>
+
+<div id="ashCard"><div class="inner"><h3 id="ashHeading"></h3><p id="ashText"></p>
+  <button id="unburnBtn" title="For the DM: bring the letter back">Restore the letter (DM)</button></div></div>
+<div id="reveal"><div class="card">
+  <h3 id="revealHeading"></h3>
+  <div id="revealBody"></div>
+  <div class="row" id="revealRow"><button id="closeReveal">Back to the letter</button></div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   DM CORNER: edit this block to change the letter.
+   - password: the hidden word. Its letters get tiny dots in the letter
+     body, in order, so the body text must contain them.
+   - "tiny" clues can only be read through the magnifying glass.
+   - "glow" clues only show up in the dark (snuff the candle).
+   ===================================================================== */
+const CONFIG = {
+  title: "The Sealed Letter",
+  subtitle: "Slipped under your door at the Gilded Stag. Look closely.",
+  salutation: "To the bearers of this seal,",
+  paragraphs: [
+    "You were seen at the Gilded Stag, asking questions that ought not be asked aloud. I admire the courage, though not the volume. The Warden's men read every letter that leaves this city, so I must write plainly and say very little.",
+    "My brother vanished three weeks ago, on the night the harbour bells rang without a hand to pull them. The watch says he drowned. The watch is paid to say a great many things.",
+    "If you wish to learn more, come to the old chapel by the water after dark. There is a door there that does not open for strangers. I trust you will know what to tell it.",
+    "Burn this once read."
+  ],
+  signature: "V.",
+  sealLetter: "V",
+  password: "LANTERN",
+  dotClue: "Some letters have a tiny ink dot beneath them. Read in order, they spell a word.",
+
+  // Tiny writing, readable only through the glass
+  tinyTop:    { text: "look closer — the dotted letters speak", note: "Tiny writing in the top margin: “look closer, the dotted letters speak.”" },
+  tinyBottom: { text: "the Warden keeps what he stole in a coffer of four dials", note: "Scrawled along the bottom edge: “The Warden keeps what he stole in a coffer of four dials.”" },
+  tinySeal:   { text: "HOUSE ASHGROVE · HOUSE ASHGROVE · ", note: "Pressed into the rim of the wax seal: HOUSE ASHGROVE." },
+
+  // Glowing ink, visible only in the dark
+  glowFront: { afterParagraph: 3, text: "Speak the word at the chapel door, and it will know you for a friend.",
+               note: "In the dark, glowing ink appears between the lines: “Speak the word at the chapel door.”" },
+  glowBack:  { lines: ["The Warden's coffer remembers:", "sun · sea · stone · moon"], runes: ["Sun", "Wave", "Mountain", "Moon"],
+               note: "On the back, in the dark: four glowing runes, Sun, Wave, Mountain, Moon, under the words “The Warden's coffer remembers.”" },
+
+  // Ordinary writing on the back of the letter
+  backText: ["To the room at the top of the stairs", "The Gilded Stag", "— by hand, and by night —"],
+
+  // The letter burns itself to ash this many minutes after the page opens.
+  // Tip for testing: add #quickburn to the end of the page's address to make it burn after 20 seconds.
+  burnAfterMinutes: 10,
+  showCountdown: true,
+  burnedHeading: "Only Ash Remains",
+  burnedText: "The letter curls, blackens and crumbles away. Whatever you didn't write down is gone.",
+
+  doorPrompt: "The chapel door asks for a word",
+  wrongAnswers: ["Nothing happens. The door stays shut.", "Silence. The stone is unmoved.", "A cold draught, and nothing more."],
+  reveal: {
+    heading: "The Door Opens",
+    body: [
+      "The word leaves your lips and the old chapel door groans inward. Candlelight flickers below, where stairs descend beneath the water line.",
+      "At the bottom waits a cloaked figure with a lantern. “You read it properly,” says V. “Good. Then you can be trusted with the rest.”"
+    ],
+    nextLabel: "Open the Warden's Coffer",
+    nextUrl: "coffer.html"
+  }
+};
+/* ===================================================================== */
+
+const $ = id => document.getElementById(id);
+$('title').textContent = CONFIG.title;
+$('subtitle').textContent = CONFIG.subtitle;
+$('doorLabel').textContent = CONFIG.doorPrompt;
+$('revealHeading').textContent = CONFIG.reveal.heading;
+$('revealBody').innerHTML = CONFIG.reveal.body.map(p => `<p>${p}</p>`).join('');
+if (CONFIG.reveal.nextUrl) {
+  const a = document.createElement('a'); a.className = 'btn'; a.href = CONFIG.reveal.nextUrl; 
+  a.textContent = CONFIG.reveal.nextLabel || 'Continue'; $('revealRow').prepend(a);
+}
+$('toggle').onclick = () => { const p = $('panel'); p.classList.toggle('collapsed'); $('toggle').textContent = p.classList.contains('collapsed') ? 'Show' : 'Hide'; };
+const isTouch = matchMedia('(pointer: coarse)').matches;
+if (isTouch) { document.body.classList.add('touch'); $('tip').textContent = 'Drag to turn the letter. Tap the glass button on the left, then drag your finger to look closely. The candle button puts out the light.'; }
+
+// ---------- clue bookkeeping ----------
+const clueNotes = {
+  dots: CONFIG.dotClue, top: CONFIG.tinyTop.note, bottom: CONFIG.tinyBottom.note, seal: CONFIG.tinySeal.note,
+  glowFront: CONFIG.glowFront.note, glowBack: CONFIG.glowBack.note
+};
+const total = Object.keys(clueNotes).length, found = new Set();
+const renderCount = () => $('count').textContent = `Clues found: ${found.size} of ${total}`;
+renderCount();
+function discover(key) {
+  if (found.has(key) || !(key in clueNotes)) return;
+  found.add(key);
+  const ul = $('notes'); const e = ul.querySelector('.empty'); if (e) e.remove();
+  const li = document.createElement('li'); li.textContent = clueNotes[key]; ul.appendChild(li);
+  renderCount();
+}
+
+const pw = CONFIG.password.toUpperCase().replace(/[^A-Z]/g, '');
+let wrongN = 0;
+let onSolved = () => {};
+$('pwForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const g = $('pw').value.toUpperCase().replace(/[^A-Z]/g, '');
+  if (!g) return;
+  if (g === pw) { $('msg').textContent = 'The seal grows warm in your hand…'; onSolved(); setTimeout(() => $('reveal').classList.add('show'), 1600); }
+  else { $('msg').textContent = CONFIG.wrongAnswers[wrongN++ % CONFIG.wrongAnswers.length];
+         const f = $('pwForm'); f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake'); }
+});
+$('closeReveal').onclick = () => $('reveal').classList.remove('show');
+
+if (!window.THREE) { $('loading').textContent = 'The letter could not be loaded (3D library blocked).'; }
+else start().catch(err => { console.error(err); $('loading').textContent = 'Something went wrong unfolding the letter.'; });
+
+// =====================================================================
+async function start() {
+  // ---------- wait for fonts and the paper image ----------
+  const timeout = ms => new Promise(r => setTimeout(r, ms));
+  if (document.fonts) await Promise.race([Promise.all([
+    document.fonts.load('60px "IM Fell English"'), document.fonts.load('italic 60px "IM Fell English"'),
+    document.fonts.load('140px "Pinyon Script"'), document.fonts.load('700 40px Cinzel')]).catch(()=>{}), timeout(3500)]);
+  let paperImg = null;
+  try {
+    const res = await fetch('paper.jpg');
+    if (res.ok) paperImg = await createImageBitmap(await res.blob());
+  } catch (e) { console.warn('paper texture not loaded, using fallback', e); }
+
+  const CW = 2048, CH = 2730;          // texture size (3:4 like the sheet)
+  const PW = 3, PH = 4;                // sheet size in world units
+  const newCanvas = () => { const c = document.createElement('canvas'); c.width = CW; c.height = CH; return c; };
+
+  // ---------- seeded randomness so the tears are the same every visit ----------
+  let seed = 1337;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+  // ---------- the torn outline ----------
+  const tornPts = [], burnFlags = [];
+  (() => {
+    const per = 2 * (CW + CH), step = 9;
+    const tears = [ { s: CW * 0.62, depth: 150, hw: 60 },                 // top edge notch
+                    { s: CW + CH * 0.55, depth: 165, hw: 55 },            // rip in the right edge
+                    { s: CW + CH + CW * 0.7, depth: 115, hw: 70 } ];      // bottom edge (x = 0.3 * CW)
+    const burnFrom = CW + CH - 520, burnTo = CW + CH + 560;               // around the bottom-right corner
+    let walk = 0;
+    for (let s = 0; s < per; s += step) {
+      let x, y, nx, ny;
+      if (s < CW) { x = s; y = 0; nx = 0; ny = 1; }
+      else if (s < CW + CH) { x = CW; y = s - CW; nx = -1; ny = 0; }
+      else if (s < 2 * CW + CH) { x = CW - (s - CW - CH); y = CH; nx = 0; ny = -1; }
+      else { x = 0; y = CH - (s - 2 * CW - CH); nx = 1; ny = 0; }
+      walk += (rnd() - 0.5) * 9; walk *= 0.93;
+      let d = 30 + walk * 2.2 + rnd() * 9;
+      for (const t of tears) { const k = 1 - Math.abs(s - t.s) / t.hw; if (k > 0) d += t.depth * k * (0.75 + rnd() * 0.4); }
+      // missing top-left corner, torn off diagonally
+      const dc = Math.min(s, per - s); if (dc < 340) d += (340 - dc) * 0.85 + rnd() * 14;
+      const burn = s > burnFrom && s < burnTo;
+      if (burn) { const k = Math.sin(Math.PI * (s - burnFrom) / (burnTo - burnFrom)); d += k * (55 + Math.sin(s * 0.02) * 30 + rnd() * 10); }
+      // pull corners in so the outline stays inside the canvas
+      tornPts.push([x + nx * d, y + ny * d]);
+      burnFlags.push(burn);
+    }
+    // corners: push them inward on both axes
+    for (const p of tornPts) { p[0] = Math.min(CW - 22, Math.max(22, p[0])); p[1] = Math.min(CH - 22, Math.max(22, p[1])); }
+  })();
+  const holes = [ { x: 110, y: CH * 0.56, r: 36 }, { x: CW - 120, y: CH * 0.24, r: 30 }, { x: CW * 0.52, y: CH - 150, r: 22 } ]
+    .map(h => { const pts = []; for (let i = 0; i < 26; i++) { const a = i / 26 * Math.PI * 2, rr = h.r * (0.65 + rnd() * 0.6); pts.push([h.x + Math.cos(a) * rr, h.y + Math.sin(a) * rr]); } return pts; });
+  const pathOf = (ctx, pts) => { ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); };
+
+  function finish(canvas, aged) {
+    const g = canvas.getContext('2d');
+    if (aged) {
+      g.save(); g.globalCompositeOperation = 'source-atop';
+      // darkened, frayed edges
+      for (let i = 0; i < 20; i++) { pathOf(g, tornPts); g.lineWidth = 130 - i * 6; g.strokeStyle = `rgba(80,45,15,${0.025 + i * 0.004})`; g.stroke(); }
+      // scorched section around the bottom-right corner
+      for (let pass = 0; pass < 18; pass++) {
+        g.lineWidth = 160 - pass * 8.5; g.strokeStyle = `rgba(28,12,3,${0.05 + pass * 0.012})`;
+        g.beginPath(); let on = false;
+        tornPts.forEach((p, i) => { if (burnFlags[i]) { on ? g.lineTo(p[0], p[1]) : g.moveTo(p[0], p[1]); on = true; } else on = false; });
+        g.stroke();
+      }
+      for (const h of holes) for (let i = 0; i < 10; i++) { pathOf(g, h); g.lineWidth = 50 - i * 4.5; g.strokeStyle = `rgba(35,15,4,${0.06 + i * 0.03})`; g.stroke(); }
+      g.restore();
+    }
+    g.save();
+    g.globalCompositeOperation = 'destination-in'; pathOf(g, tornPts); g.fillStyle = '#000'; g.fill();
+    g.globalCompositeOperation = 'destination-out'; for (const h of holes) { pathOf(g, h); g.fill(); }
+    g.restore();
+  }
+
+  function paper(g) {
+    if (paperImg) g.drawImage(paperImg, 0, 0, CW, CH);
+    else { g.fillStyle = '#e2cd9f'; g.fillRect(0, 0, CW, CH); }
+  }
+
+  // ---------- rune drawings (shared with the coffer) ----------
+  function drawRune(g, name, cx, cy, s) {
+    g.beginPath();
+    if (name === 'Sun') { g.arc(cx, cy, s*0.2, 0, Math.PI*2);
+      for (let i = 0; i < 8; i++) { const a = i*Math.PI/4; g.moveTo(cx + Math.cos(a)*s*0.29, cy + Math.sin(a)*s*0.29); g.lineTo(cx + Math.cos(a)*s*0.43, cy + Math.sin(a)*s*0.43); } }
+    else if (name === 'Moon') { const r = s*0.36, d = r*0.35, r2 = Math.hypot(0.5*r - d, 0.866*r);
+      g.arc(cx, cy, r, Math.PI/3, 5*Math.PI/3, false); g.arc(cx + d, cy, r2, Math.atan2(-0.866*r, 0.5*r - d), Math.atan2(0.866*r, 0.5*r - d), true); g.closePath(); }
+    else if (name === 'Star') { for (let i = 0; i < 10; i++) { const a = -Math.PI/2 + i*Math.PI/5, rr = i%2 ? s*0.17 : s*0.42; i ? g.lineTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr) : g.moveTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr); } g.closePath(); }
+    else if (name === 'Flame') { g.moveTo(cx, cy - s*0.44); g.bezierCurveTo(cx + s*0.36, cy - s*0.08, cx + s*0.3, cy + s*0.36, cx, cy + s*0.4); g.bezierCurveTo(cx - s*0.3, cy + s*0.36, cx - s*0.36, cy - s*0.08, cx, cy - s*0.44); }
+    else if (name === 'Wave') { for (let k = -1; k <= 1; k++) { const yy = cy + k*s*0.2; for (let x = -0.42; x <= 0.42001; x += 0.02) { const px = cx + x*s, py = yy + Math.sin(x*Math.PI*2.4) * s*0.07; x === -0.42 ? g.moveTo(px, py) : g.lineTo(px, py); } } }
+    else if (name === 'Mountain') { g.moveTo(cx - s*0.45, cy + s*0.32); g.lineTo(cx - s*0.08, cy - s*0.36); g.lineTo(cx + s*0.2, cy + s*0.08); g.lineTo(cx + s*0.27, cy - s*0.08); g.lineTo(cx + s*0.45, cy + s*0.32); g.closePath(); }
+  }
+
+  // ---------- write the letter ----------
+  const MARGIN_L = 210, MARGIN_R = 250, BODY_W = CW - MARGIN_L - MARGIN_R;
+  const BODY_FONT = '62px "IM Fell English", Georgia, serif', LINE = 98;
+  const INK = '#2a1708';
+
+  // which letters get dots: the password letters, spread evenly through the body
+  const paras = CONFIG.paragraphs, flat = paras.join('\u0000'), marks = new Set();
+  { let from = 0;
+    for (let k = 0; k < pw.length; k++) {
+      const ideal = Math.floor(k * flat.length / pw.length); let idx = -1;
+      for (let i = Math.max(from, ideal); i < flat.length; i++) if (flat[i].toUpperCase() === pw[k]) { idx = i; break; }
+      if (idx < 0) for (let i = from; i < flat.length; i++) if (flat[i].toUpperCase() === pw[k]) { idx = i; break; }
+      if (idx < 0) { console.warn('Password letter missing from the letter text:', pw[k]); continue; }
+      marks.add(idx); from = idx + 1;
+    } }
+
+  function layout(g, text, maxW) {
+    const lines = []; let line = '', start = 0; const re = /\S+/g; let m;
+    while ((m = re.exec(text))) {
+      const cand = line ? line + ' ' + m[0] : m[0];
+      if (line && g.measureText(cand).width > maxW) { lines.push({ text: line, start }); line = m[0]; start = m.index; }
+      else { if (!line) start = m.index; line = cand; }
+    }
+    if (line) lines.push({ text: line, start });
+    return lines;
+  }
+
+  const rects = { dots: [], top: null, bottom: null };
+  const inkLayer = newCanvas(), glowFrontLayer = newCanvas();
+  {
+    const g = inkLayer.getContext('2d'), gg = glowFrontLayer.getContext('2d');
+    g.fillStyle = INK; g.textBaseline = 'alphabetic';
+    let y = 300;
+    g.font = 'italic 62px "IM Fell English", Georgia, serif'; g.globalAlpha = 0.9;
+    g.fillText(CONFIG.salutation, MARGIN_L, y); y += LINE * 1.35;
+    g.font = BODY_FONT;
+    let off = 0;
+    paras.forEach((p, pi) => {
+      const lines = layout(g, p, BODY_W);
+      lines.forEach(L => {
+        g.globalAlpha = 0.82 + rnd() * 0.15;
+        g.fillText(L.text, MARGIN_L, y);
+        for (let k = 0; k < L.text.length; k++) {
+          if (!marks.has(off + L.start + k)) continue;
+          const x = MARGIN_L + g.measureText(L.text.slice(0, k)).width + g.measureText(L.text[k]).width / 2;
+          g.globalAlpha = 0.95; g.beginPath(); g.arc(x, y + 17, 4.2, 0, Math.PI * 2); g.fill();
+          rects.dots.push([x - 16, y - 30, x + 16, y + 30]);
+        }
+        y += LINE;
+      });
+      off += p.length + 1;
+      y += 34;
+      if (CONFIG.glowFront && CONFIG.glowFront.afterParagraph === pi + 1) {
+        gg.font = 'italic 60px "IM Fell English", Georgia, serif'; gg.textAlign = 'center';
+        gg.shadowColor = '#3dffc0'; gg.shadowBlur = 28; gg.fillStyle = '#c8fff0';
+        const gl = layout(gg, CONFIG.glowFront.text, BODY_W);
+        gl.forEach((L, i) => { for (let r = 0; r < 2; r++) gg.fillText(L.text, MARGIN_L + BODY_W / 2, y + i * 70); });
+        y += gl.length * 70 + 20;
+      }
+    });
+    g.globalAlpha = 0.92;
+    g.font = '150px "Pinyon Script", cursive'; g.textAlign = 'right';
+    g.fillText(CONFIG.signature, CW - MARGIN_R - 40, y + 90);
+    g.textAlign = 'left';
+    // tiny writing
+    g.font = 'italic 15px Georgia, serif'; g.globalAlpha = 0.85;
+    const tw = g.measureText(CONFIG.tinyTop.text).width, tx = CW - MARGIN_R - tw + 40, ty = 190;
+    g.fillText(CONFIG.tinyTop.text, tx, ty); rects.top = [tx - 20, ty - 30, tx + tw + 20, ty + 20];
+    const bw = g.measureText(CONFIG.tinyBottom.text).width, bx = MARGIN_L, by = CH - 330;
+    g.fillText(CONFIG.tinyBottom.text, bx, by); rects.bottom = [bx - 20, by - 30, bx + bw + 20, by + 20];
+    g.globalAlpha = 1;
+  }
+
+  // front: paper + ink, aged edges, torn
+  const frontMap = newCanvas();
+  { const g = frontMap.getContext('2d'); paper(g); g.drawImage(inkLayer, 0, 0); finish(frontMap, true); }
+  const frontGlow = newCanvas();
+  { const g = frontGlow.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, CW, CH); g.drawImage(glowFrontLayer, 0, 0); finish(frontGlow, false); }
+
+  // back: paper + faint bleed-through of the front + its own writing (mirrored so it reads correctly from behind)
+  const backInk = newCanvas(), backGlowLayer = newCanvas();
+  {
+    const g = backInk.getContext('2d');
+    g.fillStyle = INK; g.textAlign = 'center'; g.globalAlpha = 0.88;
+    g.font = 'italic 64px "IM Fell English", Georgia, serif';
+    CONFIG.backText.forEach((t, i) => { g.font = i === 1 ? '96px "Pinyon Script", cursive' : 'italic 60px "IM Fell English", Georgia, serif';
+      g.fillText(t, CW / 2, CH * 0.44 + i * 120); });
+    const gg = backGlowLayer.getContext('2d');
+    gg.textAlign = 'center'; gg.shadowColor = '#3dffc0'; gg.shadowBlur = 30; gg.fillStyle = '#c8fff0'; gg.strokeStyle = '#c8fff0';
+    const gb = CONFIG.glowBack, baseY = CH * 0.7;
+    gg.font = 'italic 58px "IM Fell English", Georgia, serif';
+    for (let r = 0; r < 2; r++) gg.fillText(gb.lines[0] || '', CW / 2, baseY);
+    (gb.runes || []).forEach((name, i, arr) => {
+      const cx = CW / 2 + (i - (arr.length - 1) / 2) * 230, cy = baseY + 190;
+      gg.lineWidth = 9; gg.lineJoin = gg.lineCap = 'round';
+      gg.beginPath(); gg.arc(cx, cy, 95, 0, Math.PI * 2); gg.stroke();
+      drawRune(gg, name, cx, cy, 150); gg.stroke(); gg.stroke();
+    });
+    gg.font = 'italic 54px "IM Fell English", Georgia, serif';
+    if (gb.lines[1]) for (let r = 0; r < 2; r++) gg.fillText(gb.lines[1], CW / 2, baseY + 390);
+  }
+  const mirrorInto = (g, src) => { g.save(); g.translate(CW, 0); g.scale(-1, 1); g.drawImage(src, 0, 0); g.restore(); };
+  const backMap = newCanvas();
+  { const g = backMap.getContext('2d'); paper(g); g.globalAlpha = 0.06; g.drawImage(inkLayer, 0, 0); g.globalAlpha = 1; mirrorInto(g, backInk); finish(backMap, true); }
+  const backGlow = newCanvas();
+  { const g = backGlow.getContext('2d'); g.fillStyle = '#000'; g.fillRect(0, 0, CW, CH); mirrorInto(g, backGlowLayer); finish(backGlow, false); }
+
+  // ---------- renderer ----------
+  const host = $('scene');
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  const DPR = Math.min(devicePixelRatio, 2);
+  renderer.setPixelRatio(DPR);
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.1;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  host.appendChild(renderer.domElement);
+  const aniso = renderer.capabilities.getMaxAnisotropy();
+  const tex = (c, srgb = true) => { const t = new THREE.CanvasTexture(c); if (srgb) t.encoding = THREE.sRGBEncoding; t.anisotropy = aniso; return t; };
+
+  const scene = new THREE.Scene();
+  const bgColor = new THREE.Color(0x0d0906);
+  scene.background = bgColor;
+  scene.fog = new THREE.Fog(0x0d0906, 14, 30);
+  const camera = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.1, 100);
+
+  // desk
+  const woodC = document.createElement('canvas'); woodC.width = woodC.height = 512;
+  { const g = woodC.getContext('2d'); g.fillStyle = '#3a2213'; g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 160; i++) { const y0 = rnd() * 512, amp = 2 + rnd() * 7, f = 0.004 + rnd() * 0.02, ph = rnd() * 6;
+      g.strokeStyle = rnd() > 0.5 ? `rgba(18,8,3,${0.15 + rnd() * 0.35})` : `rgba(110,65,32,${0.08 + rnd() * 0.15})`; g.lineWidth = 0.6 + rnd() * 2;
+      g.beginPath(); for (let x = 0; x <= 512; x += 8) { const yy = y0 + Math.sin(x * f + ph) * amp; x ? g.lineTo(x, yy) : g.moveTo(x, yy); } g.stroke(); } }
+  const woodT = tex(woodC); woodT.wrapS = woodT.wrapT = THREE.RepeatWrapping; woodT.repeat.set(3, 3);
+  const DESK_Y = -2.75;
+  const desk = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: woodT, roughness: 0.8 }));
+  desk.rotation.x = -Math.PI / 2; desk.position.y = DESK_Y; desk.receiveShadow = true; scene.add(desk);
+
+  // lights
+  const hemi = new THREE.HemisphereLight(0x9c8466, 0x140b05, 0.4); scene.add(hemi);
+  const moon = new THREE.DirectionalLight(0x8aa4ff, 0.18); moon.position.set(4, 6, 5); scene.add(moon);
+  const candleX = -3.1, candleZ = 1.4, candleH = 1.25;
+  const candle = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.19, candleH, 24), new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.6, emissive: 0x2a1a08 }));
+  candle.position.set(candleX, DESK_Y + candleH / 2, candleZ); candle.castShadow = true; scene.add(candle);
+  const holder = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.5, 0.08, 32), new THREE.MeshStandardMaterial({ color: 0xa07c3c, metalness: 0.7, roughness: 0.35 }));
+  holder.position.set(candleX, DESK_Y + 0.04, candleZ); holder.castShadow = true; scene.add(holder);
+  const flameC = document.createElement('canvas'); flameC.width = flameC.height = 128;
+  { const g = flameC.getContext('2d'); const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,250,220,1)'); gr.addColorStop(0.35, 'rgba(255,150,40,.6)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = gr; g.fillRect(0, 0, 128, 128); }
+  const flame = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex(flameC), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  flame.position.set(candleX, DESK_Y + candleH + 0.17, candleZ); scene.add(flame);
+  const candleLight = new THREE.PointLight(0xffa255, 2.4, 25, 1.4);
+  candleLight.position.set(candleX + 0.1, DESK_Y + candleH + 0.35, candleZ + 0.2);
+  candleLight.castShadow = true; candleLight.shadow.mapSize.set(1024, 1024); candleLight.shadow.bias = -0.0008; candleLight.shadow.normalBias = 0.03;
+  scene.add(candleLight);
+  const fill = new THREE.PointLight(0xffd9a0, 0.45, 30, 1.2); fill.position.set(3, 2, 6); scene.add(fill);
+
+  // ---------- the sheet ----------
+  function dispZ(x, y) {
+    let z = 0;
+    const c = PH / 6;                                       // folded in thirds
+    if (y > c) z -= (y - c) * 0.16;
+    if (y < -c) z += (-c - y) * 0.12;
+    z += 0.018 * Math.sin(3.1 * x + 1.3 * y) + 0.013 * Math.sin(5.3 * y - 2.1 * x + 0.7) + 0.006 * Math.sin(9 * x + 7 * y);
+    z += 0.004 * Math.sin(23 * x + 2) * Math.sin(17 * y);   // fine crinkles
+    const d1 = Math.hypot(x - PW / 2, y + PH / 2);          // bottom-right corner curls up
+    if (d1 < 1.2) z += 0.32 * Math.pow(1 - d1 / 1.2, 2);
+    const d2 = Math.hypot(x + PW / 2, y - PH / 2);          // top-left curls back
+    if (d2 < 1.0) z -= 0.18 * Math.pow(1 - d2 / 1.0, 2);
+    const d3 = Math.hypot(x - PW / 2, y - PH / 2);          // top-right dog-ear
+    if (d3 < 0.7) z += 0.12 * Math.pow(1 - d3 / 0.7, 2);
+    return z;
+  }
+  const geo = new THREE.PlaneGeometry(PW, PH, 150, 200);
+  { const p = geo.attributes.position; for (let i = 0; i < p.count; i++) p.setZ(i, dispZ(p.getX(i), p.getY(i))); geo.computeVertexNormals(); }
+
+  const frontT = tex(frontMap), frontGT = tex(frontGlow), backT = tex(backMap), backGT = tex(backGlow);
+  const frontMat = new THREE.MeshStandardMaterial({ map: frontT, emissiveMap: frontGT, emissive: 0xffffff, emissiveIntensity: 0,
+    roughness: 0.92, metalness: 0, alphaTest: 0.5, side: THREE.FrontSide, bumpMap: frontT, bumpScale: 0.0018 });
+  const backMat = new THREE.MeshStandardMaterial({ map: backT, emissiveMap: backGT, emissive: 0xffffff, emissiveIntensity: 0,
+    roughness: 0.92, metalness: 0, alphaTest: 0.5, side: THREE.BackSide, bumpMap: backT, bumpScale: 0.0018 });
+
+  const letter = new THREE.Group(); letter.rotation.order = 'YXZ'; scene.add(letter);
+  const front = new THREE.Mesh(geo, frontMat), back = new THREE.Mesh(geo, backMat);
+  front.castShadow = true; front.receiveShadow = true; back.receiveShadow = true;
+  front.customDistanceMaterial = new THREE.MeshDistanceMaterial({ map: frontT, alphaTest: 0.5, side: THREE.DoubleSide });
+  front.customDepthMaterial = new THREE.MeshDepthMaterial({ map: frontT, alphaTest: 0.5, depthPacking: THREE.RGBADepthPacking, side: THREE.DoubleSide });
+  letter.add(front, back);
+
+  // wax seal
+  const sealC = document.createElement('canvas'); sealC.width = sealC.height = 512;
+  { const g = sealC.getContext('2d');
+    const gr = g.createRadialGradient(200, 180, 20, 256, 256, 256); gr.addColorStop(0, '#c9483e'); gr.addColorStop(0.6, '#8f1c1a'); gr.addColorStop(1, '#5a0c0b');
+    g.fillStyle = gr; g.fillRect(0, 0, 512, 512);
+    g.lineWidth = 10; g.strokeStyle = 'rgba(50,0,0,.55)'; g.beginPath(); g.arc(256, 256, 176, 0, Math.PI * 2); g.stroke();
+    g.lineWidth = 3; g.strokeStyle = 'rgba(255,160,140,.25)'; g.beginPath(); g.arc(256, 256, 183, 0, Math.PI * 2); g.stroke();
+    g.font = '300px "Pinyon Script", cursive'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(255,160,140,.35)'; g.fillText(CONFIG.sealLetter, 262, 262);
+    g.fillStyle = '#4e0909'; g.fillText(CONFIG.sealLetter, 256, 254);
+    // micro text around the rim
+    g.font = '700 17px Georgia, serif'; g.fillStyle = 'rgba(255,205,185,.85)';
+    const txt = CONFIG.tinySeal.text, R = 205; let a = -Math.PI / 2;
+    for (const ch of txt) { const w = g.measureText(ch).width; g.save(); g.translate(256 + Math.cos(a) * R, 256 + Math.sin(a) * R); g.rotate(a + Math.PI / 2); g.fillText(ch, 0, 0); g.restore(); a += (w + 1.5) / R; if (a > Math.PI * 1.5) break; }
+  }
+  const sealGeo = new THREE.CylinderGeometry(0.21, 0.22, 0.05, 48, 1);
+  { const p = sealGeo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i), r = Math.hypot(x, z); if (r < 0.01) continue;
+      const th = Math.atan2(z, x), k = 1 + 0.07 * Math.sin(5 * th) + 0.05 * Math.sin(11 * th + 1) + 0.03 * Math.sin(17 * th + 2); p.setX(i, x * k); p.setZ(i, z * k); }
+    sealGeo.rotateX(Math.PI / 2); sealGeo.computeVertexNormals(); }
+  const sealMatBody = new THREE.MeshStandardMaterial({ color: 0x86191a, roughness: 0.35, metalness: 0.05, emissive: 0x000000 });
+  const seal = new THREE.Group();
+  const sealBody = new THREE.Mesh(sealGeo, sealMatBody); sealBody.castShadow = true; seal.add(sealBody);
+  const sealCapMat = new THREE.MeshStandardMaterial({ map: tex(sealC), roughness: 0.3, metalness: 0.05, emissive: 0x000000 });
+  const sealCap = new THREE.Mesh(new THREE.CircleGeometry(0.2, 48), sealCapMat); sealCap.position.z = 0.026; seal.add(sealCap);
+  { const su = 0.77, sv = 0.83, x = (su - 0.5) * PW, y = (0.5 - sv) * PH, e = 0.01;
+    const z = dispZ(x, y), dzdx = (dispZ(x + e, y) - dispZ(x - e, y)) / (2 * e), dzdy = (dispZ(x, y + e) - dispZ(x, y - e)) / (2 * e);
+    seal.position.set(x, y, z + 0.02);
+    // tilt so the seal sits flat on the sheet's local slope
+    seal.lookAt(new THREE.Vector3(x - dzdx, y - dzdy, z + 0.02 + 1)); }
+  letter.add(seal);
+  const sealHome = { pos: seal.position.clone(), quat: seal.quaternion.clone() };
+
+  // ---------- burning ----------
+  const BW = 512, BH = 683;
+  const burnC = document.createElement('canvas'); burnC.width = BW; burnC.height = BH;
+  const burnVals = new Float32Array(BW * BH);
+  {
+    // the fire starts at the scorched bottom-right corner and eats its way across, with ragged noise
+    const g = burnC.getContext('2d'), img = g.createImageData(BW, BH);
+    const nz = []; for (let o = 0; o < 4; o++) { const n = 6 * 2 ** o, a = []; for (let i = 0; i < (n + 2) * (n + 2); i++) a.push(rnd()); nz.push({ n, a }); }
+    const noise = (u, v) => { let s = 0, amp = 1, tot = 0;
+      for (const { n, a } of nz) { const x = u * n, y = v * n, xi = Math.floor(x), yi = Math.floor(y), fx = x - xi, fy = y - yi, w = n + 2;
+        const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+        const v00 = a[yi * w + xi], v10 = a[yi * w + xi + 1], v01 = a[(yi + 1) * w + xi], v11 = a[(yi + 1) * w + xi + 1];
+        s += amp * ((v00 * (1 - sx) + v10 * sx) * (1 - sy) + (v01 * (1 - sx) + v11 * sx) * sy); tot += amp; amp *= 0.5; }
+      return s / tot; };
+    let mn = 1e9, mx = -1e9;
+    for (let y = 0; y < BH; y++) for (let x = 0; x < BW; x++) {
+      const u = x / BW, v = y / BH;
+      const d = Math.hypot((1 - u) * 0.75, (1 - v)) / 1.25;
+      const val = d * 0.72 + noise(u, v) * 0.38;
+      burnVals[y * BW + x] = val; mn = Math.min(mn, val); mx = Math.max(mx, val);
+    }
+    for (let i = 0; i < burnVals.length; i++) { const v = (burnVals[i] - mn) / (mx - mn); burnVals[i] = v;
+      img.data[i * 4] = img.data[i * 4 + 1] = img.data[i * 4 + 2] = v * 255; img.data[i * 4 + 3] = 255; }
+    g.putImageData(img, 0, 0);
+  }
+  const burnTex = new THREE.CanvasTexture(burnC);
+  const burnU = { uBurn: { value: 0 }, burnMap: { value: burnTex } };
+  const addBurn = mat => {
+    mat.onBeforeCompile = sh => {
+      sh.uniforms.uBurn = burnU.uBurn; sh.uniforms.burnMap = burnU.burnMap;
+      sh.fragmentShader = 'uniform float uBurn;\nuniform sampler2D burnMap;\n' + sh.fragmentShader
+        .replace('#include <map_fragment>', `#include <map_fragment>
+          float bn = texture2D(burnMap, vUv).r;
+          float burning = step(0.0001, uBurn);
+          if (burning > 0.5 && bn < uBurn) discard;
+          diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.04, 0.03, 0.025), burning * smoothstep(uBurn + 0.10, uBurn + 0.012, bn));
+          diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vec3(0.75, 0.6, 0.45), burning * smoothstep(uBurn + 0.22, uBurn + 0.08, bn));`)
+        .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+          float rim = burning * smoothstep(uBurn + 0.03, uBurn + 0.004, bn);
+          totalEmissiveRadiance = totalEmissiveRadiance * (1.0 - burning * smoothstep(uBurn + 0.12, uBurn, bn))
+            + vec3(1.0, 0.42, 0.08) * rim * 4.0 + vec3(0.9, 0.25, 0.02) * burning * smoothstep(uBurn + 0.07, uBurn + 0.03, bn) * 0.6;`);
+    };
+    mat.needsUpdate = true;
+  };
+  addBurn(frontMat); addBurn(backMat);
+
+  // where can embers and ash come from? bucket the sheet by burn order
+  const BUCKETS = 120, buckets = Array.from({ length: BUCKETS }, () => []);
+  { const c = document.createElement('canvas'); c.width = BW; c.height = BH; const g = c.getContext('2d');
+    g.drawImage(frontMap, 0, 0, BW, BH); const a = g.getImageData(0, 0, BW, BH).data;
+    for (let y = 0; y < BH; y += 2) for (let x = 0; x < BW; x += 2) { const i = y * BW + x; if (a[i * 4 + 3] < 128) continue;
+      buckets[Math.min(BUCKETS - 1, Math.floor(burnVals[i] * BUCKETS))].push(i); } }
+  const sealBn = burnVals[Math.floor(0.83 * BH) * BW + Math.floor(0.77 * BW)];
+  const tmpV = new THREE.Vector3();
+  function frontPoint(burnLevel, out) {
+    const b0 = Math.max(0, Math.min(BUCKETS - 1, Math.floor(burnLevel * BUCKETS) + Math.floor(rnd() * 3) - 1));
+    let list = buckets[b0]; if (!list.length) return false;
+    const i = list[Math.floor(Math.random() * list.length)], px = i % BW, py = Math.floor(i / BW);
+    const x = ((px + 0.5) / BW - 0.5) * PW, y = (0.5 - (py + 0.5) / BH) * PH;
+    out.set(x, y, dispZ(x, y)).applyMatrix4(letter.matrixWorld); return true;
+  }
+  function makePoints(n, size, blending, opacity) {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+    const mat = new THREE.PointsMaterial({ size, vertexColors: true, transparent: true, opacity, blending, depthWrite: false, sizeAttenuation: true });
+    const pts = new THREE.Points(geo, mat); pts.frustumCulled = false; scene.add(pts);
+    for (let i = 0; i < n; i++) geo.attributes.position.array[i * 3 + 1] = -999;
+    return { pts, geo, n, vel: new Float32Array(n * 3), life: new Float32Array(n), max: new Float32Array(n), shade: new Float32Array(n), next: 0 };
+  }
+  const embers = makePoints(500, 0.055, THREE.AdditiveBlending, 1);
+  const ash = makePoints(2200, 0.045, THREE.NormalBlending, 0.95);
+  const smoke = makePoints(160, 0.9, THREE.NormalBlending, 0.16);
+  { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d');
+    const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 64, 64); const t = new THREE.CanvasTexture(c);
+    embers.pts.material.map = t; smoke.pts.material.map = t; }
+  { const c = document.createElement('canvas'); c.width = c.height = 32; const g = c.getContext('2d'); g.fillStyle = '#fff';
+    g.beginPath(); g.moveTo(4, 10); g.lineTo(20, 3); g.lineTo(29, 17); g.lineTo(16, 29); g.lineTo(6, 22); g.closePath(); g.fill();
+    ash.pts.material.map = new THREE.CanvasTexture(c); ash.pts.material.alphaTest = 0.3; }
+  function spawn(sys, p, vx, vy, vz, life, shade) {
+    const i = sys.next; sys.next = (sys.next + 1) % sys.n;
+    const P = sys.geo.attributes.position.array; P[i * 3] = p.x; P[i * 3 + 1] = p.y; P[i * 3 + 2] = p.z;
+    sys.vel[i * 3] = vx; sys.vel[i * 3 + 1] = vy; sys.vel[i * 3 + 2] = vz; sys.life[i] = life; sys.max[i] = life; sys.shade[i] = shade;
+  }
+  function clearSys(sys) { sys.life.fill(0); const P = sys.geo.attributes.position.array; for (let i = 0; i < sys.n; i++) P[i * 3 + 1] = -999; sys.geo.attributes.color.array.fill(0);
+    sys.geo.attributes.position.needsUpdate = sys.geo.attributes.color.needsUpdate = true; }
+  const fireLight = new THREE.PointLight(0xff7a2a, 0, 12, 1.5); scene.add(fireLight);
+  const fireAvg = new THREE.Vector3();
+
+  const BURN_SECONDS = 16;
+  const burnDelay = (location.hash === '#quickburn' ? 20 : CONFIG.burnAfterMinutes * 60) * 1000;
+  let burnStartAt = performance.now() + burnDelay, burnT = -1, burnedOut = false, sealFall = null;
+  $('ashHeading').textContent = CONFIG.burnedHeading; $('ashText').textContent = CONFIG.burnedText;
+  $('unburnBtn').onclick = () => {
+    burnT = -1; burnedOut = false; burnU.uBurn.value = 0; letter.visible = true; front.castShadow = true;
+    letter.attach(seal); seal.position.copy(sealHome.pos); seal.quaternion.copy(sealHome.quat); sealFall = null;
+    clearSys(embers); clearSys(ash); clearSys(smoke); fireLight.intensity = 0;
+    $('ashCard').classList.remove('show'); burnStartAt = performance.now() + burnDelay;
+  };
+
+  // ---------- magnifier (render-to-texture) ----------
+  const LENS = isTouch ? 190 : 230, ZOOM = 3.4;
+  const rt = new THREE.WebGLRenderTarget(LENS * DPR, LENS * DPR);
+  const overlay = new THREE.Scene();
+  const ortho = new THREE.OrthographicCamera(0, innerWidth, 0, -innerHeight, -1, 1);
+  const lensMesh = new THREE.Mesh(new THREE.CircleGeometry(LENS / 2, 64), new THREE.MeshBasicMaterial({ map: rt.texture, toneMapped: false }));
+  overlay.add(lensMesh);
+  const ring = $('ring'), rim = ring.querySelector('.rim'), handle = ring.querySelector('.handle');
+  const RIM = LENS + 20;
+  Object.assign(rim.style, { width: RIM + 'px', height: RIM + 'px', left: -RIM / 2 + 'px', top: -RIM / 2 + 'px' });
+  const hOff = RIM / 2 * 0.707; Object.assign(handle.style, { left: hOff - 13 + 'px', top: hOff + 'px' });
+
+  // ---------- view & controls ----------
+  const view = { yaw: 0, pitch: 0, dist: 8.6 }, viewT = { ...view };
+  let lens = { on: false, x: 0, y: 0 }, drag = null, glassOn = false;
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  const pickables = [front, back, sealCap, sealBody];
+  function hitAt(x, y) {
+    ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    return ray.intersectObjects(pickables, false)[0] || null;
+  }
+  const inRect = (r, px, py) => r && px >= r[0] && px <= r[2] && py >= r[1] && py <= r[3];
+  function checkLensClues(h) {
+    if (!h) return;
+    if (h.object === sealCap || h.object === sealBody) { discover('seal'); return; }
+    if (h.object !== front || !h.uv) return;
+    const px = h.uv.x * CW, py = (1 - h.uv.y) * CH;
+    if (inRect(rects.top, px, py)) discover('top');
+    if (inRect(rects.bottom, px, py)) discover('bottom');
+    if (rects.dots.some(r => inRect(r, px, py))) discover('dots');
+  }
+  function placeLens(x, y) {
+    if (burnT >= 0) { hideLens(); return; }
+    const h = hitAt(x, y);
+    lens.on = !!h; lens.x = x; lens.y = y;
+    ring.classList.toggle('on', lens.on);
+    if (lens.on) { ring.style.transform = `translate(${x}px, ${y}px)`; checkLensClues(h); }
+  }
+  const hideLens = () => { lens.on = false; ring.classList.remove('on'); };
+
+  const el = renderer.domElement;
+  el.addEventListener('pointerdown', e => {
+    el.setPointerCapture(e.pointerId);
+    const touchGlass = e.pointerType === 'touch' && glassOn;
+    drag = { x: e.clientX, y: e.clientY, glass: touchGlass };
+    if (touchGlass) placeLens(e.clientX, e.clientY - 120); else { hideLens(); el.style.cursor = 'grabbing'; }
+  });
+  el.addEventListener('pointermove', e => {
+    if (drag && !drag.glass) {
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY;
+      viewT.yaw += dx * 0.008; viewT.pitch = Math.max(-0.9, Math.min(0.9, viewT.pitch + dy * 0.006));
+    } else if (drag && drag.glass) placeLens(e.clientX, e.clientY - 120);
+    else if (e.pointerType !== 'touch') { if (glassOn) placeLens(e.clientX, e.clientY); else hideLens(); el.style.cursor = lens.on ? 'none' : 'grab'; }
+  });
+  const endDrag = e => { if (drag && drag.glass) hideLens(); drag = null; el.style.cursor = 'grab';
+    if (e && e.pointerType !== 'touch' && glassOn) placeLens(e.clientX, e.clientY); };
+  el.addEventListener('pointerup', endDrag); el.addEventListener('pointercancel', endDrag);
+  el.addEventListener('pointerleave', () => { if (!drag) hideLens(); });
+  el.addEventListener('wheel', e => { e.preventDefault(); viewT.dist = Math.max(4.5, Math.min(14, viewT.dist + e.deltaY * 0.006)); }, { passive: false });
+
+  $('flipBtn').onclick = () => { viewT.yaw = Math.round(viewT.yaw / Math.PI) * Math.PI + Math.PI; };
+  $('resetBtn').onclick = () => { viewT.yaw = Math.round(viewT.yaw / (2 * Math.PI)) * 2 * Math.PI; viewT.pitch = 0; viewT.dist = baseDist(); };
+  let dark = false, darkK = 0;
+  $('candleBtn').onclick = () => { dark = !dark; const b = $('candleBtn'); b.classList.toggle('out', dark); b.setAttribute('aria-pressed', dark);
+    $('candleLabel').textContent = dark ? 'Relight' : 'Candle'; };
+  $('glassBtn').onclick = () => { glassOn = !glassOn; const b = $('glassBtn'); b.classList.toggle('on', glassOn); b.setAttribute('aria-pressed', glassOn);
+    $('glassLabel').textContent = glassOn ? 'Put down' : 'Glass'; if (!glassOn) hideLens(); };
+
+  let sealGlow = 0;
+  onSolved = () => { sealGlow = 0.001; };
+
+  function baseDist() {
+    const a = innerWidth / innerHeight, vfov = 38 * Math.PI / 180;
+    const needH = 5.0 / (2 * Math.tan(vfov / 2)), needW = 3.9 / (2 * Math.tan(vfov / 2) * a);
+    return Math.max(needH, needW);
+  }
+  view.dist = viewT.dist = baseDist();
+  function onResize() {
+    camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+    renderer.setSize(innerWidth, innerHeight);
+    ortho.right = innerWidth; ortho.bottom = -innerHeight; ortho.updateProjectionMatrix();
+    viewT.dist = baseDist();
+  }
+  addEventListener('resize', onResize);
+
+  // ---------- loop ----------
+  const clock = new THREE.Clock();
+  const facing = new THREE.Vector3(), toCam = new THREE.Vector3();
+  const glowTimer = { glowFront: 0, glowBack: 0 };
+  $('loading').style.opacity = 0; setTimeout(() => $('loading').remove(), 900);
+
+  function frame() {
+    const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+    const k = 1 - Math.pow(0.002, dt);
+    view.yaw += (viewT.yaw - view.yaw) * k; view.pitch += (viewT.pitch - view.pitch) * k; view.dist += (viewT.dist - view.dist) * k;
+
+    // letter hangs in the candlelight, gently drifting
+    const wide = innerWidth > 900 && innerWidth / innerHeight > 1.2;
+    letter.position.set(wide ? -0.9 : 0, 0.05 + Math.sin(t * 0.8) * 0.04, 0);
+    letter.rotation.y = view.yaw + Math.sin(t * 0.5) * 0.03;
+    letter.rotation.x = view.pitch + Math.sin(t * 0.7 + 1) * 0.02;
+    camera.position.set(letter.position.x, 0.35, view.dist);
+    camera.lookAt(letter.position.x, -0.05, 0);
+
+    // light / dark
+    darkK += ((dark ? 1 : 0) - darkK) * (1 - Math.pow(0.02, dt));
+    const flick = 0.86 + 0.09 * Math.sin(t * 9) + 0.06 * Math.sin(t * 23.7) + 0.04 * Math.sin(t * 41);
+    candleLight.intensity = 2.4 * flick * (1 - darkK);
+    flame.material.opacity = 1 - darkK; flame.scale.set(0.22 + 0.03 * flick, 0.4 + 0.08 * flick, 1);
+    candle.material.emissiveIntensity = 1 - darkK;
+    hemi.intensity = 0.4 * (1 - darkK) + 0.015;
+    fill.intensity = 0.45 * (1 - darkK);
+    moon.intensity = 0.18 * (1 - darkK) + 0.06 * darkK;
+    const glow = Math.pow(darkK, 1.5) * (1.25 + 0.08 * Math.sin(t * 2.2));
+    frontMat.emissiveIntensity = glow; backMat.emissiveIntensity = glow;
+    bgColor.setRGB(0.051 * (1 - darkK) + 0.008, 0.035 * (1 - darkK) + 0.008, 0.024 * (1 - darkK) + 0.012);
+    scene.fog.color.copy(bgColor);
+
+    // which side faces the camera? glowing ink is noticed after a moment in the dark
+    facing.set(0, 0, 1).applyQuaternion(letter.quaternion);
+    toCam.copy(camera.position).sub(letter.position).normalize();
+    const side = facing.dot(toCam) > 0.25 ? 'glowFront' : facing.dot(toCam) < -0.25 ? 'glowBack' : null;
+    for (const key in glowTimer) glowTimer[key] = (darkK > 0.85 && side === key) ? glowTimer[key] + dt : 0;
+    if (glowTimer.glowFront > 0.8) discover('glowFront');
+    if (glowTimer.glowBack > 0.8) discover('glowBack');
+
+    if (sealGlow > 0) { sealGlow = Math.min(1, sealGlow + dt * 0.7);
+      const c = 0.5 + 0.5 * Math.sin(t * 4); sealCapMat.emissive.setRGB(0.9 * sealGlow * c, 0.45 * sealGlow * c, 0.1 * sealGlow * c); sealMatBody.emissive.copy(sealCapMat.emissive); }
+
+    // ---------- countdown & burning ----------
+    const now = performance.now();
+    if (burnT < 0) {
+      const left = Math.max(0, burnStartAt - now) / 1000;
+      if (CONFIG.showCountdown) { const m = Math.floor(left / 60), sec = Math.floor(left % 60);
+        $('timer').textContent = left > 0 ? `The letter will burn in ${m}:${String(sec).padStart(2, '0')}` : 'It catches fire!';
+        $('timer').classList.toggle('hot', left < 60); }
+      if (left <= 0) { burnT = 0; hideLens(); }
+    }
+    if (burnT >= 0 && !burnedOut) {
+      burnT += dt;
+      const b = Math.min(1.06, Math.pow(burnT / BURN_SECONDS, 0.85) * 1.06);
+      burnU.uBurn.value = Math.max(0.0002, b);
+      $('timer').textContent = 'It\u2019s burning!';
+      if (b > 0.35) front.castShadow = false;
+      // embers, ash and smoke from the burning edge
+      letter.updateMatrixWorld();
+      fireAvg.set(0, 0, 0); let cnt = 0;
+      const rate = b < 1 ? 1 : 0;
+      for (let i = 0; i < 9 * rate; i++) if (frontPoint(b, tmpV)) {
+        fireAvg.add(tmpV); cnt++;
+        spawn(embers, tmpV, (Math.random() - 0.5) * 0.3, 0.6 + Math.random() * 0.9, (Math.random() - 0.5) * 0.3, 0.7 + Math.random() * 1.2, 1);
+      }
+      for (let i = 0; i < 12 * rate; i++) if (frontPoint(b - 0.015, tmpV))
+        spawn(ash, tmpV, (Math.random() - 0.5) * 0.25, -0.15 - Math.random() * 0.3, (Math.random() - 0.5) * 0.25, 999, 0.12 + Math.random() * 0.3);
+      if (Math.random() < 0.6 * rate && frontPoint(b, tmpV)) spawn(smoke, tmpV, (Math.random() - 0.5) * 0.15, 0.5 + Math.random() * 0.3, 0, 3.5, 0.25);
+      if (cnt) fireLight.position.copy(fireAvg.divideScalar(cnt)).add(new THREE.Vector3(0, 0, 0.4));
+      fireLight.intensity = (b < 1 ? 2.6 : Math.max(0, 2.6 - (burnT - BURN_SECONDS) * 3)) * (0.8 + 0.2 * Math.sin(t * 17) + 0.1 * Math.sin(t * 31));
+      // the wax seal falls off when the flames reach it
+      if (!sealFall && b > sealBn + 0.02) { scene.attach(seal); sealFall = { v: 0, spin: (Math.random() - 0.5) * 6 }; }
+      if (b >= 1.06 && !burnedOut) { burnedOut = true; letter.visible = false; fireLight.intensity = 0;
+        $('timer').textContent = 'Only ash remains.'; $('timer').classList.remove('hot');
+        setTimeout(() => $('ashCard').classList.add('show'), 2200); }
+    }
+    if (sealFall) {
+      sealFall.v -= 9.8 * dt; seal.position.y += sealFall.v * dt;
+      const floorY = DESK_Y + 0.03;
+      if (seal.position.y <= floorY) { seal.position.y = floorY; sealFall.v = Math.abs(sealFall.v) > 1.2 ? -sealFall.v * 0.25 : 0;
+        seal.quaternion.slerp(new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, seal.rotation.z)), 0.3); }
+      else seal.rotation.x += sealFall.spin * dt;
+    }
+    // particle updates
+    for (const sys of [embers, ash, smoke]) {
+      const P = sys.geo.attributes.position.array, C = sys.geo.attributes.color.array; let any = false;
+      for (let i = 0; i < sys.n; i++) {
+        if (sys.life[i] <= 0) continue; any = true;
+        const j = i * 3;
+        if (sys === ash) {
+          if (P[j + 1] > DESK_Y + 0.02) { sys.vel[j] += Math.sin(t * 2 + i) * 0.4 * dt; sys.vel[j + 2] += Math.cos(t * 1.7 + i) * 0.4 * dt;
+            sys.vel[j] *= 0.98; sys.vel[j + 2] *= 0.98; sys.vel[j + 1] = Math.max(-0.7, sys.vel[j + 1] - 0.25 * dt);
+            P[j] += sys.vel[j] * dt; P[j + 1] += sys.vel[j + 1] * dt; P[j + 2] += sys.vel[j + 2] * dt; }
+          else P[j + 1] = DESK_Y + 0.015;
+          const s = sys.shade[i]; C[j] = s; C[j + 1] = s * 0.97; C[j + 2] = s * 0.93;
+        } else {
+          sys.life[i] -= dt; const f = Math.max(0, sys.life[i] / sys.max[i]);
+          sys.vel[j] += (Math.random() - 0.5) * 1.2 * dt; sys.vel[j + 2] += (Math.random() - 0.5) * 1.2 * dt;
+          P[j] += sys.vel[j] * dt; P[j + 1] += sys.vel[j + 1] * dt; P[j + 2] += sys.vel[j + 2] * dt;
+          if (sys === embers) { C[j] = f; C[j + 1] = 0.45 * f * f; C[j + 2] = 0.08 * f; }
+          else { const g = 0.35 * f; C[j] = g; C[j + 1] = g; C[j + 2] = g; }
+          if (sys.life[i] <= 0) { C[j] = C[j + 1] = C[j + 2] = 0; P[j + 1] = -999; }
+        }
+      }
+      if (any) { sys.geo.attributes.position.needsUpdate = true; sys.geo.attributes.color.needsUpdate = true; }
+    }
+
+    // magnified view
+    if (lens.on) {
+      const W = innerWidth, H = innerHeight, s = LENS / ZOOM;
+      camera.setViewOffset(W, H, lens.x - s / 2, lens.y - s / 2, s, s);
+      renderer.setRenderTarget(rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
+      camera.clearViewOffset();
+    }
+    renderer.render(scene, camera);
+    if (lens.on) {
+      lensMesh.position.set(lens.x, -lens.y, 0);
+      renderer.autoClear = false; renderer.clearDepth(); renderer.render(overlay, ortho); renderer.autoClear = true;
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+}
+</script>
+</body>
+</html>

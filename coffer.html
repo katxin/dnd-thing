@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Warden's Coffer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root { --gold:#d9b46a; --gold-dim:#8c7442; --ink:#2b1d10; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; height:100%; background:#0b0806; color:#e9dcc2; overflow:hidden;
+    font-family:'IM Fell English', Georgia, serif; }
+  #scene { position:fixed; inset:0; touch-action:none; }
+  canvas { display:block; }
+
+  .title { position:fixed; top:18px; left:22px; pointer-events:none; }
+  .title h1 { margin:0; font-family:'Cinzel', serif; font-weight:700; font-size:clamp(20px,3vw,30px);
+    letter-spacing:.08em; color:var(--gold); text-shadow:0 0 18px rgba(217,180,106,.35); }
+  .title p { margin:4px 0 0; font-style:italic; opacity:.65; font-size:15px; }
+
+  #panel { position:fixed; top:18px; right:18px; width:min(360px, calc(100vw - 36px));
+    background:linear-gradient(180deg, rgba(28,20,13,.88), rgba(18,13,9,.88));
+    border:1px solid rgba(217,180,106,.35); border-radius:10px; padding:16px 18px 14px;
+    box-shadow:0 10px 40px rgba(0,0,0,.6), inset 0 0 30px rgba(217,180,106,.05);
+    backdrop-filter:blur(4px); }
+  #panel h2 { margin:0 0 10px; font-family:'Cinzel',serif; font-size:14px; letter-spacing:.2em;
+    color:var(--gold); text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+  #panel h2 button { font-size:12px; }
+  #riddle { margin:0; padding:0; list-style:none; }
+  #riddle li { display:flex; gap:10px; margin:0 0 9px; line-height:1.35; font-size:16.5px; }
+  #riddle li b { font-family:'Cinzel',serif; color:var(--gold); min-width:26px; font-size:14px; padding-top:2px; }
+  #panel.collapsed #panelBody { display:none; }
+  .row { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  button { font-family:'Cinzel',serif; letter-spacing:.08em; font-size:12.5px; color:#f3e6c8;
+    background:rgba(217,180,106,.12); border:1px solid rgba(217,180,106,.45); border-radius:6px;
+    padding:7px 12px; cursor:pointer; transition:background .2s, border-color .2s; }
+  button:hover { background:rgba(217,180,106,.25); border-color:var(--gold); }
+  #hint { margin-top:10px; font-style:italic; color:#cdb98e; min-height:0; font-size:15px; }
+  #hint:empty { display:none; }
+
+  #help { position:fixed; left:50%; bottom:18px; transform:translateX(-50%); font-size:14px;
+    opacity:.7; text-align:center; pointer-events:none; white-space:nowrap;
+    background:rgba(0,0,0,.35); padding:6px 14px; border-radius:20px; }
+
+  #reveal { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    background:rgba(5,3,2,.55); opacity:0; pointer-events:none; transition:opacity 1.2s ease; padding:20px; }
+  #reveal.show { opacity:1; pointer-events:auto; }
+  .parchment { position:relative; max-width:520px; width:100%; color:var(--ink); padding:36px 40px 28px;
+    background:
+      radial-gradient(ellipse at 20% 15%, rgba(255,255,255,.35), transparent 50%),
+      radial-gradient(ellipse at 80% 90%, rgba(120,80,30,.35), transparent 55%),
+      linear-gradient(135deg, #e8d5a6, #d9bf85 55%, #c9a965);
+    border-radius:4px; box-shadow:0 20px 60px rgba(0,0,0,.7), inset 0 0 60px rgba(110,70,20,.45);
+    transform:translateY(20px) scale(.97); transition:transform 1.2s ease; }
+  #reveal.show .parchment { transform:none; }
+  .parchment h3 { font-family:'Cinzel',serif; text-align:center; margin:0 0 6px; font-size:24px; letter-spacing:.06em; }
+  .parchment .rule { height:1px; background:linear-gradient(90deg,transparent,#6b4a20,transparent); margin:10px 0 16px; }
+  .parchment p { font-size:18px; line-height:1.5; margin:0 0 12px; }
+  .parchment .sig { text-align:right; font-style:italic; }
+  .parchment .row { justify-content:center; margin-top:18px; }
+  .parchment button { color:var(--ink); background:rgba(80,50,15,.12); border-color:rgba(80,50,15,.5); }
+  .parchment button:hover { background:rgba(80,50,15,.25); }
+
+  #loading { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+    font-family:'Cinzel',serif; letter-spacing:.2em; color:var(--gold-dim); }
+
+  @media (max-width: 720px) {
+    #panel { top:auto; bottom:52px; right:50%; transform:translateX(50%); }
+    #riddle li { font-size:15px; }
+    .title { top:12px; left:14px; }
+    #help { font-size:12px; }
+  }
+</style>
+</head>
+<body>
+<div id="loading">Unsealing…</div>
+<div id="scene"></div>
+
+<div class="title">
+  <h1 id="titleText">The Warden's Coffer</h1>
+  <p id="subtitleText">Four dials. Six runes. One answer.</p>
+</div>
+
+<div id="panel">
+  <h2><span>The Inscription</span><button id="toggle" aria-label="Hide inscription">Hide</button></h2>
+  <div id="panelBody">
+    <ul id="riddle"></ul>
+    <div id="hint"></div>
+    <div class="row">
+      <button id="hintBtn">Ask for a hint</button>
+      <button id="viewBtn">Reset view</button>
+    </div>
+  </div>
+</div>
+
+<div id="help">Drag to turn the coffer · Click the top or bottom of a dial to roll it</div>
+
+<div id="reveal">
+  <div class="parchment">
+    <h3 id="revealHeading"></h3>
+    <div class="rule"></div>
+    <div id="revealBody"></div>
+    <div class="row">
+      <button id="closeReveal">Look at the coffer</button>
+      <button id="resetBtn">Seal it again</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =====================================================================
+   DM CORNER — edit this block to change the puzzle.
+   Rune names you can use: Sun, Moon, Star, Flame, Wave, Mountain
+   ===================================================================== */
+const CONFIG = {
+  title: "The Warden's Coffer",
+  subtitle: "Four dials. Six runes. One answer.",
+  riddle: [
+    "I wake the world, yet none may hold my gaze.",
+    "I bow to the moon and swallow the flame.",
+    "I outlast kings and wear the clouds as a crown.",
+    "I am the night's lantern, burning light I do not own."
+  ],
+  answer: ["Sun", "Wave", "Mountain", "Moon"],
+  start:  ["Star", "Flame", "Star", "Flame"],
+  hints: [
+    "Each line of the inscription speaks of one dial, read from left to right.",
+    "The six runes are the Sun, the Moon, a Star, a Flame, a Wave and a Mountain.",
+    "The last line describes something that only reflects the light of another."
+  ],
+  reveal: {
+    heading: "The Coffer Opens",
+    body: [
+      "With a sigh of old brass, the lid lifts. Golden light spills across your faces.",
+      "Nestled in black velvet lies a silver key, its bow etched with the same four runes, and a folded note in faded ink:",
+      "<i>“The vault beneath the Drowned Chapel answers only at moonrise. Bring the key, and tell no one.”</i>",
+      "<span class='sig'>— V.</span>"
+    ]
+  }
+};
+/* ===================================================================== */
+
+const RUNES = ["Sun", "Moon", "Star", "Flame", "Wave", "Mountain"];
+const ANSWER = CONFIG.answer.map(n => RUNES.indexOf(n));
+const START  = CONFIG.start.map(n => Math.max(0, RUNES.indexOf(n)));
+
+// ---------- UI text ----------
+document.getElementById('titleText').textContent = CONFIG.title;
+document.getElementById('subtitleText').textContent = CONFIG.subtitle;
+const numerals = ["I", "II", "III", "IV"];
+document.getElementById('riddle').innerHTML = CONFIG.riddle
+  .map((l, i) => `<li><b>${numerals[i]}</b><span>${l}</span></li>`).join('');
+document.getElementById('revealHeading').textContent = CONFIG.reveal.heading;
+document.getElementById('revealBody').innerHTML = CONFIG.reveal.body.map(p => `<p>${p}</p>`).join('');
+
+let hintIdx = 0;
+document.getElementById('hintBtn').onclick = () => {
+  const h = document.getElementById('hint');
+  h.textContent = CONFIG.hints[hintIdx % CONFIG.hints.length];
+  hintIdx++;
+  document.getElementById('hintBtn').textContent =
+    hintIdx >= CONFIG.hints.length ? "Hints (again)" : `Another hint (${hintIdx}/${CONFIG.hints.length})`;
+};
+document.getElementById('toggle').onclick = () => {
+  const p = document.getElementById('panel');
+  p.classList.toggle('collapsed');
+  document.getElementById('toggle').textContent = p.classList.contains('collapsed') ? "Show" : "Hide";
+};
+
+if (!window.THREE) {
+  document.getElementById('loading').textContent = "The coffer could not be loaded (3D library blocked).";
+} else {
+  document.getElementById('loading').remove();
+  main();
+}
+
+function main() {
+// ---------- Audio (created on first interaction) ----------
+let actx = null;
+function audio() {
+  if (!actx) { try { actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} }
+  if (actx && actx.state === 'suspended') actx.resume().catch(()=>{});
+  return actx;
+}
+function clack() {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime;
+  const len = 0.09, buf = a.createBuffer(1, a.sampleRate * len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.pow(1 - i/d.length, 4);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1800 + Math.random()*400; f.Q.value = 3;
+  const g = a.createGain(); g.gain.value = 0.5;
+  src.connect(f).connect(g).connect(a.destination); src.start(t);
+  const o = a.createOscillator(), og = a.createGain();
+  o.frequency.setValueAtTime(180, t); o.frequency.exponentialRampToValueAtTime(70, t + 0.08);
+  og.gain.setValueAtTime(0.25, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(og).connect(a.destination); o.start(t); o.stop(t + 0.12);
+}
+function chime() {
+  const a = audio(); if (!a) return;
+  const t = a.currentTime;
+  [261.6, 329.6, 392, 523.3, 659.3].forEach((fq, i) => {
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine'; o.frequency.value = fq;
+    g.gain.setValueAtTime(0, t + i*0.12);
+    g.gain.linearRampToValueAtTime(0.12, t + i*0.12 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t + i*0.12 + 3);
+    o.connect(g).connect(a.destination); o.start(t + i*0.12); o.stop(t + i*0.12 + 3.1);
+  });
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = 'triangle'; o.frequency.setValueAtTime(55, t); o.frequency.linearRampToValueAtTime(40, t + 1.8);
+  g.gain.setValueAtTime(0.0, t); g.gain.linearRampToValueAtTime(0.2, t + 0.3); g.gain.exponentialRampToValueAtTime(0.001, t + 2);
+  o.connect(g).connect(a.destination); o.start(t); o.stop(t + 2.1);
+}
+
+// ---------- Renderer / scene ----------
+const host = document.getElementById('scene');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+host.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b0806);
+scene.fog = new THREE.Fog(0x0b0806, 12, 26);
+
+const camera = new THREE.PerspectiveCamera(40, innerWidth / innerHeight, 0.1, 100);
+const target = new THREE.Vector3(0, 1.15, 0);
+const DEFAULT_VIEW = { yaw: 0.38, pitch: 0.3, r: 9 };
+const view = { ...DEFAULT_VIEW }, viewT = { ...DEFAULT_VIEW };
+
+// ---------- Procedural textures ----------
+function canvasTex(w, h, draw, srgb = true) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  draw(c.getContext('2d'), w, h);
+  const t = new THREE.CanvasTexture(c);
+  if (srgb) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return t;
+}
+function rand(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+
+const woodTex = canvasTex(512, 512, (g, w, h) => {
+  const r = rand(7);
+  g.fillStyle = '#4a2c17'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 140; i++) {
+    const y0 = r() * h, amp = 2 + r() * 8, freq = 0.005 + r() * 0.02, ph = r() * 6;
+    g.strokeStyle = r() > 0.5 ? `rgba(30,15,6,${0.15 + r()*0.35})` : `rgba(120,75,40,${0.08 + r()*0.18})`;
+    g.lineWidth = 0.6 + r() * 2.2;
+    g.beginPath();
+    for (let x = 0; x <= w; x += 8) {
+      const y = y0 + Math.sin(x * freq + ph) * amp + Math.sin(x * 0.05 + ph) * 1.2;
+      x === 0 ? g.moveTo(x, y) : g.lineTo(x, y);
+    }
+    g.stroke();
+  }
+  for (let i = 0; i < 4; i++) { // knots
+    const x = r()*w, y = r()*h;
+    for (let k = 0; k < 6; k++) { g.strokeStyle = 'rgba(25,12,5,.35)'; g.beginPath(); g.ellipse(x, y, 4 + k*5, 2 + k*2.2, 0, 0, Math.PI*2); g.stroke(); }
+  }
+});
+woodTex.wrapS = woodTex.wrapT = THREE.RepeatWrapping;
+
+const stoneTex = canvasTex(512, 512, (g, w, h) => {
+  const r = rand(3);
+  g.fillStyle = '#1c1611'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 9000; i++) { const v = r(); g.fillStyle = `rgba(${v>0.5?120:0},${v>0.5?100:0},${v>0.5?80:0},${0.04 + r()*0.06})`; g.fillRect(r()*w, r()*h, 2, 2); }
+  g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 3;
+  for (let y = 0; y < h; y += 128) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    for (let x = (y/128)%2 ? 0 : 128; x < w; x += 256) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y+128); g.stroke(); } }
+});
+stoneTex.wrapS = stoneTex.wrapT = THREE.RepeatWrapping; stoneTex.repeat.set(6, 6);
+
+const velvetTex = canvasTex(256, 256, (g, w, h) => {
+  const r = rand(11); g.fillStyle = '#3a0c12'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(0,0,0,${r()*0.15})`; g.fillRect(r()*w, r()*h, 1, 1); }
+});
+
+// ---------- Rune drawing ----------
+function drawRune(g, name, cx, cy, s) {
+  g.beginPath();
+  if (name === 'Sun') {
+    g.arc(cx, cy, s*0.2, 0, Math.PI*2);
+    for (let i = 0; i < 8; i++) { const a = i*Math.PI/4; g.moveTo(cx + Math.cos(a)*s*0.29, cy + Math.sin(a)*s*0.29); g.lineTo(cx + Math.cos(a)*s*0.43, cy + Math.sin(a)*s*0.43); }
+  } else if (name === 'Moon') {
+    const r = s*0.36, d = r*0.35, r2 = Math.hypot(0.5*r - d, 0.866*r);
+    g.arc(cx, cy, r, Math.PI/3, 5*Math.PI/3, false);
+    g.arc(cx + d, cy, r2, Math.atan2(-0.866*r, 0.5*r - d), Math.atan2(0.866*r, 0.5*r - d), true);
+    g.closePath();
+  } else if (name === 'Star') {
+    for (let i = 0; i < 10; i++) { const a = -Math.PI/2 + i*Math.PI/5, rr = i%2 ? s*0.17 : s*0.42;
+      i ? g.lineTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr) : g.moveTo(cx + Math.cos(a)*rr, cy + Math.sin(a)*rr); }
+    g.closePath();
+  } else if (name === 'Flame') {
+    g.moveTo(cx, cy - s*0.44);
+    g.bezierCurveTo(cx + s*0.36, cy - s*0.08, cx + s*0.3, cy + s*0.36, cx, cy + s*0.4);
+    g.bezierCurveTo(cx - s*0.3, cy + s*0.36, cx - s*0.36, cy - s*0.08, cx, cy - s*0.44);
+    g.moveTo(cx, cy - s*0.05);
+    g.bezierCurveTo(cx + s*0.14, cy + s*0.1, cx + s*0.12, cy + s*0.3, cx, cy + s*0.3);
+    g.bezierCurveTo(cx - s*0.12, cy + s*0.3, cx - s*0.14, cy + s*0.1, cx, cy - s*0.05);
+  } else if (name === 'Wave') {
+    for (let k = -1; k <= 1; k++) {
+      const yy = cy + k*s*0.2;
+      for (let x = -0.42; x <= 0.42001; x += 0.02) {
+        const px = cx + x*s, py = yy + Math.sin(x*Math.PI*2.4) * s*0.07;
+        x === -0.42 ? g.moveTo(px, py) : g.lineTo(px, py);
+      }
+    }
+  } else if (name === 'Mountain') {
+    g.moveTo(cx - s*0.45, cy + s*0.32); g.lineTo(cx - s*0.08, cy - s*0.36); g.lineTo(cx + s*0.2, cy + s*0.08);
+    g.lineTo(cx + s*0.27, cy - s*0.08); g.lineTo(cx + s*0.45, cy + s*0.32); g.closePath();
+    g.moveTo(cx - s*0.24, cy + s*0.02); g.lineTo(cx - s*0.16, cy - s*0.06); g.lineTo(cx - s*0.08, cy + s*0.04);
+    g.lineTo(cx + s*0.0, cy - s*0.06); g.lineTo(cx + s*0.07, cy + s*0.0);
+  }
+}
+
+// Each dial face: a base texture (engraved stone) and an emissive map (the rune glow)
+const FACE_W = 256, FACE_H = 192;
+function faceTextures(name) {
+  const map = canvasTex(FACE_W, FACE_H, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, '#3b3026'); grd.addColorStop(0.5, '#2a221b'); grd.addColorStop(1, '#1d1712');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    const r = rand(name.length * 97);
+    for (let i = 0; i < 1500; i++) { g.fillStyle = `rgba(255,230,190,${r()*0.05})`; g.fillRect(r()*w, r()*h, 1.5, 1.5); }
+    g.strokeStyle = 'rgba(200,160,90,.55)'; g.lineWidth = 4; g.strokeRect(8, 8, w - 16, h - 16);
+    g.strokeStyle = 'rgba(0,0,0,.6)'; g.lineWidth = 2; g.strokeRect(14, 14, w - 28, h - 28);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    drawRune(g, name, w/2 + 2, h/2 + 3, h*0.78); g.strokeStyle = 'rgba(0,0,0,.8)'; g.lineWidth = 12; g.stroke();
+    drawRune(g, name, w/2, h/2, h*0.78); g.strokeStyle = '#c99a4a'; g.lineWidth = 8; g.stroke();
+  });
+  const glow = canvasTex(FACE_W, FACE_H, (g, w, h) => {
+    g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.shadowColor = '#ffcf70'; g.shadowBlur = 18;
+    drawRune(g, name, w/2, h/2, h*0.78); g.strokeStyle = '#ffd98a'; g.lineWidth = 7; g.stroke();
+  });
+  return { map, glow };
+}
+const faceTex = RUNES.map(faceTextures);
+
+function plateTex(text) {
+  return canvasTex(256, 128, (g, w, h) => {
+    const grd = g.createLinearGradient(0, 0, 0, h);
+    grd.addColorStop(0, '#d8b469'); grd.addColorStop(0.5, '#a07b3c'); grd.addColorStop(1, '#6e5126');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    g.strokeStyle = '#4a3416'; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12);
+    g.font = '700 78px Cinzel, Georgia, serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = 'rgba(255,240,200,.5)'; g.fillText(text, w/2 + 2, h/2 + 6);
+    g.fillStyle = '#3a2810'; g.fillText(text, w/2, h/2 + 4);
+  });
+}
+function glowSpriteTex(inner, outer) {
+  return canvasTex(128, 128, (g, w, h) => {
+    const grd = g.createRadialGradient(w/2, h/2, 0, w/2, h/2, w/2);
+    grd.addColorStop(0, inner); grd.addColorStop(0.35, outer); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+  });
+}
+
+// ---------- Materials ----------
+const wood = new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.75, metalness: 0.05 });
+const woodDark = new THREE.MeshStandardMaterial({ map: woodTex, color: 0x8a6a55, roughness: 0.8 });
+const brass = new THREE.MeshStandardMaterial({ color: 0xb48a46, roughness: 0.35, metalness: 0.75, emissive: 0x1a1006 });
+const iron = new THREE.MeshStandardMaterial({ color: 0x2a2420, roughness: 0.6, metalness: 0.6 });
+const velvet = new THREE.MeshStandardMaterial({ map: velvetTex, roughness: 1 });
+const gold = new THREE.MeshStandardMaterial({ color: 0xffd27a, roughness: 0.25, metalness: 0.9, emissive: 0x3a2508 });
+
+// ---------- Floor & candles ----------
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.95 }));
+floor.rotation.x = -Math.PI/2; floor.receiveShadow = true; scene.add(floor);
+
+scene.add(new THREE.HemisphereLight(0x8a7560, 0x120a05, 0.45));
+const fill = new THREE.PointLight(0xffd9a0, 0.55, 30, 1.2); fill.position.set(3.5, 5, 6); scene.add(fill);
+const rim = new THREE.DirectionalLight(0x6d82c8, 0.4); rim.position.set(-2, 4, -6); scene.add(rim);
+
+const flameTex = glowSpriteTex('rgba(255,250,220,1)', 'rgba(255,150,40,.6)');
+const candles = [];
+function addCandle(x, z, hgt) {
+  const c = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.15, hgt, 20), new THREE.MeshStandardMaterial({ color: 0xe8dcc0, roughness: 0.6, emissive: 0x2a1a08 }));
+  c.position.set(x, hgt/2, z); c.castShadow = true; scene.add(c);
+  const wick = new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.08, 6), iron); wick.position.set(x, hgt + 0.04, z); scene.add(wick);
+  const fl = new THREE.Sprite(new THREE.SpriteMaterial({ map: flameTex, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true }));
+  fl.position.set(x, hgt + 0.16, z); fl.scale.set(0.22, 0.38, 1); scene.add(fl);
+  const L = new THREE.PointLight(0xffa255, 1.9, 22, 1.5); L.position.set(x, hgt + 0.25, z);
+  L.castShadow = true; L.shadow.mapSize.set(1024, 1024); L.shadow.bias = -0.0008; L.shadow.normalBias = 0.04; L.shadow.radius = 4; scene.add(L);
+  candles.push({ fl, L, base: 1.9, seed: Math.random()*100 });
+}
+addCandle(-3.4, 2.0, 1.1);
+addCandle(3.6, -1.4, 0.75);
+
+// ---------- The coffer ----------
+const W = 4.2, H = 2.0, D = 2.6, T = 0.14;
+const coffer = new THREE.Group(); scene.add(coffer);
+function box(w, h, d, mat, x, y, z, parent = coffer) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+  m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+}
+box(W, T, D, wood, 0, T/2, 0);                     // bottom
+box(W, H, T, wood, 0, H/2, D/2 - T/2);             // front
+box(W, H, T, wood, 0, H/2, -D/2 + T/2);            // back
+box(T, H, D - 2*T, wood, -W/2 + T/2, H/2, 0);       // left
+box(T, H, D - 2*T, wood,  W/2 - T/2, H/2, 0);       // right
+const inner = new THREE.Mesh(new THREE.PlaneGeometry(W - 2*T, D - 2*T), velvet);
+inner.rotation.x = -Math.PI/2; inner.position.y = T + 0.002; inner.receiveShadow = true; coffer.add(inner);
+// trim & corners
+box(W + 0.06, 0.12, D + 0.06, woodDark, 0, 0.06, 0);
+for (const sz of [-1, 1]) box(W + 0.04, 0.085, 0.18, brass, 0, H - 0.0375, sz*(D/2 - 0.07));
+for (const sx of [-1, 1]) box(0.18, 0.085, D - 0.32, brass, sx*(W/2 - 0.07), H - 0.0375, 0);
+for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+  box(0.2, H, 0.2, iron, sx*(W/2 - 0.03), H/2, sz*(D/2 - 0.03));
+  const stud = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 8), brass);
+  stud.position.set(sx*(W/2 + 0.075), 0.3, sz*(D/2 - 0.03)); coffer.add(stud);
+  const stud2 = stud.clone(); stud2.position.y = H - 0.3; coffer.add(stud2);
+}
+
+// dial housing
+const DIAL_Y = H*0.47, DIAL_X = [-1.38, -0.46, 0.46, 1.38], DIAL_LEN = 0.62, APO = 0.34;
+const RAD = APO / Math.cos(Math.PI/6), FACE_S = 2*APO*Math.tan(Math.PI/6);
+const DIAL_Z = D/2 + 0.27;
+box(3.75, 1.0, 0.27, iron, 0, DIAL_Y, D/2 + 0.135);
+box(3.9, 0.08, 0.32, brass, 0, DIAL_Y + 0.54, D/2 + 0.16);
+box(3.9, 0.08, 0.32, brass, 0, DIAL_Y - 0.54, D/2 + 0.16);
+const axle = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.7, 16), brass);
+axle.rotation.z = Math.PI/2; axle.position.set(0, DIAL_Y, DIAL_Z); coffer.add(axle);
+
+// numeral plates
+DIAL_X.forEach((x, i) => {
+  const p = new THREE.Mesh(new THREE.PlaneGeometry(0.42, 0.21), new THREE.MeshStandardMaterial({ map: plateTex(numerals[i]), roughness: 0.4, metalness: 0.5 }));
+  p.position.set(x, H - 0.3, D/2 + 0.004); coffer.add(p);
+});
+
+// dials
+const dials = [];
+DIAL_X.forEach((x, i) => {
+  const group = new THREE.Group(); group.position.set(x, DIAL_Y, DIAL_Z); coffer.add(group);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x5a4632, roughness: 0.5, metalness: 0.5, emissive: 0x000000 });
+  const bodyGeo = new THREE.CylinderGeometry(RAD, RAD, DIAL_LEN, 6, 1, false, Math.PI/6); bodyGeo.rotateZ(-Math.PI/2);
+  const body = new THREE.Mesh(bodyGeo, bodyMat); body.castShadow = true; group.add(body);
+  const faceMats = [];
+  RUNES.forEach((name, k) => {
+    const theta = k * Math.PI/3;
+    const mat = new THREE.MeshStandardMaterial({ map: faceTex[k].map, emissiveMap: faceTex[k].glow, emissive: 0xffc560, emissiveIntensity: 0.12, roughness: 0.55, metalness: 0.2 });
+    const face = new THREE.Mesh(new THREE.PlaneGeometry(DIAL_LEN * 0.9, FACE_S * 0.98), mat);
+    face.rotation.x = -theta;
+    face.position.set(0, Math.sin(theta) * (APO + 0.003), Math.cos(theta) * (APO + 0.003));
+    group.add(face); faceMats.push(mat);
+  });
+  // brass end rings
+  for (const s of [-1, 1]) {
+    const ringGeo = new THREE.CylinderGeometry(RAD * 1.06, RAD * 1.06, 0.04, 6, 1, false, Math.PI/6); ringGeo.rotateZ(-Math.PI/2);
+    const ring = new THREE.Mesh(ringGeo, brass); ring.position.x = s * (DIAL_LEN/2 + 0.02); group.add(ring);
+  }
+  group.traverse(o => { o.userData.dial = i; });
+  const idx = START[i];
+  group.rotation.x = idx * Math.PI/3;
+  dials.push({ group, bodyMat, faceMats, index: idx, angle: idx * Math.PI/3, glow: 0.12 });
+});
+
+// lid
+const lidPivot = new THREE.Group(); lidPivot.position.set(0, H, -D/2 - 0.05); coffer.add(lidPivot);
+const LD = D + 0.1;
+box(W + 0.1, 0.24, LD, wood, 0, 0.12, LD/2, lidPivot);
+const domeGeo = new THREE.CylinderGeometry(LD/2, LD/2, W + 0.1, 40, 1, false, 0, Math.PI); domeGeo.rotateZ(Math.PI/2);
+const dome = new THREE.Mesh(domeGeo, wood); dome.scale.y = 0.42; dome.position.set(0, 0.24, LD/2); dome.castShadow = true; lidPivot.add(dome);
+for (const x of [-1.5, 0, 1.5]) {
+  const bg = new THREE.CylinderGeometry(LD/2 + 0.02, LD/2 + 0.02, 0.2, 40, 1, false, 0, Math.PI); bg.rotateZ(Math.PI/2);
+  const band = new THREE.Mesh(bg, x === 0 ? brass : iron); band.scale.y = 0.42; band.position.set(x, 0.24, LD/2); lidPivot.add(band);
+}
+box(W + 0.14, 0.06, LD + 0.04, brass, 0, 0.045, LD/2, lidPivot);
+// gem lock on lid front
+const gemMat = new THREE.MeshStandardMaterial({ color: 0x8a1020, roughness: 0.15, metalness: 0.3, emissive: 0x400008, emissiveIntensity: 1 });
+const gemPlate = box(0.6, 0.42, 0.06, brass, 0, 0.1, LD + 0.02, lidPivot);
+const gem = new THREE.Mesh(new THREE.OctahedronGeometry(0.13, 0), gemMat); gem.scale.set(1, 1.3, 0.6);
+gem.position.set(0, 0.1, LD + 0.08); lidPivot.add(gem);
+
+// treasure inside
+const treasure = new THREE.Group(); treasure.position.set(0, T + 0.2, 0); coffer.add(treasure);
+const keyBow = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.05, 14, 36), gold); keyBow.position.x = -0.55; treasure.add(keyBow);
+const keyGem = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshStandardMaterial({ color: 0x6fd3ff, emissive: 0x1a6aa0, roughness: 0.1 }));
+keyGem.position.x = -0.55; treasure.add(keyGem);
+const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.95, 14), gold); shaft.rotation.z = Math.PI/2; shaft.position.x = 0.07; treasure.add(shaft);
+[[0.36, 0.12], [0.46, 0.18], [0.5, 0.1]].forEach(([x, h]) => { const t = new THREE.Mesh(new THREE.BoxGeometry(0.06, h, 0.05), gold); t.position.set(x, -h/2 - 0.02, 0); treasure.add(t); });
+treasure.rotation.x = -Math.PI/2.4; treasure.traverse(o => { o.castShadow = true; });
+
+const innerLight = new THREE.PointLight(0xffc870, 0, 9, 1.4); innerLight.position.set(0, H * 0.7, 0); coffer.add(innerLight);
+const halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowSpriteTex('rgba(255,235,170,.9)', 'rgba(255,170,60,.25)'), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, opacity: 0 }));
+halo.position.set(0, H + 0.4, 0); halo.scale.set(5, 4, 1); coffer.add(halo);
+
+// dust motes
+const dustN = 260, dustGeo = new THREE.BufferGeometry(), dustPos = new Float32Array(dustN * 3), dustVel = [];
+for (let i = 0; i < dustN; i++) { dustPos[i*3] = (Math.random()-0.5)*14; dustPos[i*3+1] = Math.random()*6; dustPos[i*3+2] = (Math.random()-0.5)*10; dustVel.push(Math.random()*0.04 + 0.01); }
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ map: glowSpriteTex('rgba(255,230,180,1)', 'rgba(255,200,120,.3)'), size: 0.06, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+scene.add(dust);
+
+// ---------- Interaction ----------
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let down = null, hovered = -1, solved = false, openT = -1;
+const dialMeshes = []; dials.forEach(d => d.group.traverse(o => { if (o.isMesh) dialMeshes.push(o); }));
+
+function pick(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(dialMeshes, false)[0];
+  return hit ? { dial: hit.object.userData.dial, point: hit.point } : null;
+}
+const el = renderer.domElement;
+el.addEventListener('pointerdown', e => { audio(); down = { x: e.clientX, y: e.clientY, moved: 0 }; el.setPointerCapture(e.pointerId); });
+el.addEventListener('pointermove', e => {
+  if (down) {
+    const dx = e.clientX - down.x, dy = e.clientY - down.y;
+    down.moved += Math.abs(dx) + Math.abs(dy); down.x = e.clientX; down.y = e.clientY;
+    viewT.yaw -= dx * 0.008;
+    viewT.pitch = Math.max(-0.05, Math.min(1.25, viewT.pitch + dy * 0.006));
+  } else if (!solved) {
+    const p = pick(e); hovered = p ? p.dial : -1;
+    el.style.cursor = p ? 'pointer' : 'grab';
+  }
+});
+el.addEventListener('pointerup', e => {
+  if (down && down.moved < 6 && !solved) {
+    const p = pick(e);
+    if (p) {
+      const d = dials[p.dial];
+      const centre = new THREE.Vector3(); d.group.getWorldPosition(centre);
+      const dir = p.point.y > centre.y ? 1 : -1;
+      d.angle += dir * Math.PI/3;
+      d.index = ((Math.round(d.angle / (Math.PI/3)) % 6) + 6) % 6;
+      clack(); check();
+    }
+  }
+  down = null;
+});
+el.addEventListener('pointerleave', () => { hovered = -1; });
+el.addEventListener('wheel', e => { e.preventDefault(); viewT.r = Math.max(5.5, Math.min(14, viewT.r + e.deltaY * 0.006)); }, { passive: false });
+document.getElementById('viewBtn').onclick = () => Object.assign(viewT, DEFAULT_VIEW);
+
+function check() {
+  if (dials.every((d, i) => d.index === ANSWER[i])) {
+    solved = true; hovered = -1; el.style.cursor = 'grab';
+    openT = 0; setTimeout(chime, 450);
+    Object.assign(viewT, { yaw: 0.15, pitch: 0.62, r: 8.2 });
+  }
+}
+function resetPuzzle() {
+  solved = false; openT = -1;
+  document.getElementById('reveal').classList.remove('show');
+  dials.forEach((d, i) => { d.angle = d.angle - (((d.index - START[i]) % 6) + 6) % 6 * Math.PI/3; d.index = START[i]; });
+  Object.assign(viewT, DEFAULT_VIEW);
+}
+document.getElementById('closeReveal').onclick = () => document.getElementById('reveal').classList.remove('show');
+document.getElementById('resetBtn').onclick = resetPuzzle;
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight);
+});
+
+// ---------- Animate ----------
+const clock = new THREE.Clock();
+const ease = t => t < 0.5 ? 4*t*t*t : 1 - Math.pow(-2*t + 2, 3) / 2;
+let revealShown = false, lidAngle = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  const k = 1 - Math.pow(0.0015, dt);
+  view.yaw += (viewT.yaw - view.yaw) * k; view.pitch += (viewT.pitch - view.pitch) * k; view.r += (viewT.r - view.r) * k;
+  camera.position.set(
+    target.x + view.r * Math.sin(view.yaw) * Math.cos(view.pitch),
+    target.y + view.r * Math.sin(view.pitch),
+    target.z + view.r * Math.cos(view.yaw) * Math.cos(view.pitch));
+  camera.lookAt(target);
+
+  candles.forEach(c => {
+    const f = 0.85 + 0.1*Math.sin(t*9 + c.seed) + 0.07*Math.sin(t*23.7 + c.seed*2) + 0.04*Math.sin(t*41 + c.seed);
+    c.L.intensity = c.base * f; c.fl.scale.set(0.2 + 0.03*f, 0.34 + 0.08*f, 1);
+  });
+
+  dials.forEach((d, i) => {
+    d.group.rotation.x += (d.angle - d.group.rotation.x) * (1 - Math.pow(0.00002, dt));
+    const hov = hovered === i && !solved;
+    d.bodyMat.emissive.setHex(hov ? 0x3a2510 : 0x000000);
+    let g = hov ? 0.35 : 0.12;
+    if (openT >= 0) g = openT > i * 0.22 ? 1.6 : g;
+    d.glow += (g - d.glow) * k;
+    d.faceMats.forEach(m => { m.emissiveIntensity = d.glow; });
+  });
+
+  if (openT >= 0) {
+    openT += dt;
+    const lt = Math.max(0, Math.min(1, (openT - 1.1) / 1.8));
+    lidAngle = -1.85 * ease(lt);
+    gemMat.color.setHex(0xffc84a); gemMat.emissive.setHex(0xff9a20); gemMat.emissiveIntensity = 0.6 + 0.4*Math.sin(t*4);
+    innerLight.intensity = 3.2 * lt;
+    halo.material.opacity = 0.75 * lt * (0.9 + 0.1*Math.sin(t*3));
+    const rise = Math.max(0, Math.min(1, (openT - 2.2) / 2));
+    treasure.position.y = T + 0.2 + ease(rise) * (H + 0.25) + Math.sin(t*1.6) * 0.06 * rise;
+    treasure.rotation.x = -Math.PI/2.4 * (1 - ease(rise));
+    treasure.rotation.y = rise * t * 0.6;
+    if (openT > 4.2 && !revealShown) { revealShown = true; document.getElementById('reveal').classList.add('show'); }
+  } else {
+    lidAngle += (0 - lidAngle) * k;
+    gemMat.color.setHex(0x8a1020); gemMat.emissive.setHex(0x400008); gemMat.emissiveIntensity = 0.8 + 0.3*Math.sin(t*1.5);
+    innerLight.intensity *= 0.9; halo.material.opacity *= 0.9;
+    treasure.position.y += (T + 0.2 - treasure.position.y) * k; treasure.rotation.set(-Math.PI/2.4, 0, 0);
+    revealShown = false;
+  }
+  lidPivot.rotation.x = lidAngle;
+
+  const pa = dustGeo.attributes.position;
+  for (let i = 0; i < dustN; i++) {
+    pa.array[i*3+1] += dustVel[i] * dt * 3; pa.array[i*3] += Math.sin(t*0.3 + i) * dt * 0.05;
+    if (pa.array[i*3+1] > 6) pa.array[i*3+1] = 0;
+  }
+  pa.needsUpdate = true;
+
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+frame();
+// Debug hook for testing: window.__solve()
+window.__solve = () => { dials.forEach((d, i) => { d.index = ANSWER[i]; d.angle = ANSWER[i] * Math.PI/3; }); check(); };
+}
+</script>
+</body>
+</html>
